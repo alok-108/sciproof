@@ -61,6 +61,7 @@ class Declarations:
     claims: list[tuple[str, str]]
     note: str | None
     record_hardware: bool
+    record_env: list[str] = field(default_factory=list)
     max_log_bytes: int = DEFAULT_MAX_LOG_BYTES
     #: outputs whose tolerance differs from ``rtol``/``atol`` (the most common one)
     tolerances: dict[str, dict[str, float]] = field(default_factory=dict)
@@ -106,6 +107,7 @@ def declarations_of(manifest: dict[str, Any]) -> Declarations:
         claims=[(c["output"], claim_expression(c)) for c in manifest.get("claims") or []],
         note=manifest.get("note"),
         record_hardware=bool(manifest["environment"].get("hardware")),
+        record_env=list(manifest["environment"].get("recorded_env", {}).keys()),
         max_log_bytes=log_limit_of(manifest),
         tolerances=different,
     )
@@ -213,6 +215,7 @@ def update_baseline(
                 force=True,
                 claims=declarations.claims,
                 note=note if note is not None else declarations.note,
+                record_env=declarations.record_env,
                 record_hardware=declarations.record_hardware,
             )
         except BaseException:
