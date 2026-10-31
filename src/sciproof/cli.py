@@ -205,6 +205,15 @@ def _build_parser() -> argparse.ArgumentParser:
         "name, user name or serial numbers; a rerun then reports differences",
     )
 
+    cap.add_argument(
+        "--record-env",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="also record this environment variable (value, or absent if unset); "
+        "repeatable; names that look secret-like (TOKEN, SECRET, KEY, PASSWORD) are refused",
+    )
+
     cap.add_argument("--force", action="store_true", help="overwrite an existing manifest")
 
     cap.add_argument(
@@ -653,6 +662,7 @@ def _run_capture(args: argparse.Namespace) -> int:
         claims=[(output, expression) for output, expression in args.claim],
         note=args.note,
         record_hardware=args.record_hardware,
+        record_env=args.record_env,
     )
 
     for warning in result.warnings:
@@ -918,6 +928,7 @@ def _run_record(args: argparse.Namespace) -> int:
         force=args.force,
         note=args.note,
         record_hardware=args.record_hardware,
+        record_env=args.record_env,
     )
 
     for warning in result.capture.warnings:
