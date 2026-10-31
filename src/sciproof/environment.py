@@ -173,6 +173,31 @@ def platform_info() -> dict[str, str]:
     }
 
 
+# A name that looks like it could hold a secret is never recorded on
+# request, even if the user names it explicitly.
+_SECRET_NAME_PARTS = ("TOKEN", "SECRET", "KEY", "PASSWORD")
+
+
+def recorded_env_vars(
+    names: list[str], environ: dict[str, str] | None = None
+) -> dict[str, str | None]:
+    """Record explicitly requested variables: ``{name: value}``, or ``None`` if unset.
+
+    Names must be valid variable names and must not look secret-like
+    (containing TOKEN, SECRET, KEY or PASSWORD). Duplicates are ignored.
+    """
+    environ = os.environ if environ is None else environ
+    result: dict[str, str | None] = {}
+    for name in names:
+        if not _ENV_NAME.fullmatch(name):
+            raise UsageError(f"{name!r} is not a valid environment variable name")
+        if any(part in name.upper() for part in _SECRET_NAME_PARTS):
+            raise UsageError(f"refusing to record {name!r}: it looks like it could hold a secret")
+        if name not in result:
+            result[name] = environ.get(name)
+    return result
+
+
 def selected_env_vars(environ: dict[str, str] | None = None) -> dict[str, str]:
     environ = os.environ if environ is None else environ
     return {name: environ[name] for name in ENV_ALLOWLIST if name in environ}
