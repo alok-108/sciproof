@@ -260,6 +260,20 @@ def _diff_environment(old: dict[str, Any], new: dict[str, Any], report: DiffRepo
                 f"variable {name}",
                 _versions(a["env_vars"][name], b["env_vars"][name]),
             )
+    for name in sorted(set(a.get("recorded_env", {})) | set(b.get("recorded_env", {}))):
+        va, vb = a.get("recorded_env", {}).get(name), b.get("recorded_env", {}).get(name)
+
+        def fmt(v):
+            return "absent" if v is None else _text(v)
+
+        if name not in b.get("recorded_env", {}):
+            report.add("environment", "removed", f"recorded variable {name}", f"was {fmt(va)}")
+        elif name not in a.get("recorded_env", {}):
+            report.add("environment", "added", f"recorded variable {name}", f"is {fmt(vb)}")
+        elif va != vb:
+            report.add(
+                "environment", "changed", f"recorded variable {name}", f"{fmt(va)} -> {fmt(vb)}"
+            )
     _diff_hardware(old, new, report)
     locks_a = {item["path"]: item["sha256"] for item in a.get("lockfiles", [])}
     locks_b = {item["path"]: item["sha256"] for item in b.get("lockfiles", [])}
