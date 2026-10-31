@@ -442,6 +442,7 @@ def test_output_absent_to_present_is_reported(project, pair):
 
 def test_snapshot_unsafe_path(tmp_path):
     from sciproof.diffmanifests import _snapshot
+
     item = {"compare": {"snapshot": {"path": "../escape.json", "sha256": "0" * 64}}}
     path, reason = _snapshot(tmp_path, item)
     assert path is None
