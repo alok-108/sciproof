@@ -142,6 +142,21 @@ def _check_note(note: Any, minor: int) -> None:
         raise _fail("note", f"expected 1 to {MAX_NOTE_LENGTH} characters of text")
 
 
+def _check_recorded_env(recorded: Any, minor: int) -> None:
+    """Validate the optional ``environment.recorded_env`` record (schema 1.1)."""
+    if recorded is None:
+        return
+    where = "environment.recorded_env"
+    if minor < 1:
+        raise _fail(where, "recorded_env needs schema_version 1.1 or later")
+    recorded = _as_dict(recorded, where)
+    for name, value in recorded.items():
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+            raise _fail(f"{where}.{name}", "expected a valid environment variable name")
+        if value is not None and not isinstance(value, str):
+            raise _fail(f"{where}.{name}", "expected a string or null (absent)")
+
+
 def _check_hardware(hardware: Any, minor: int) -> None:
     """Validate the optional ``environment.hardware`` record (schema 1.1)."""
     if hardware is None:
@@ -325,6 +340,7 @@ def validate_manifest(data: Any) -> dict[str, Any]:
                 raise _fail(where, f"duplicate lockfile path {path!r}")
             seen_lockfiles.add(path)
             _sha(_get(item, "sha256", str, where), f"{where}.sha256")
+    _check_recorded_env(environment.get("recorded_env"), minor)
     _check_hardware(environment.get("hardware"), minor)
     _check_note(manifest.get("note"), minor)
 
