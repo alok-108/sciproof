@@ -299,3 +299,32 @@ def test_a_location_infinite_in_some_runs_only_is_flagged():
 
     _, _, _, problem = _spread([[("x", float("inf"))], [("x", 100.0)]], 1e-3, 0.0)
     assert problem == "x is infinite in some runs only"
+
+
+# ------------------------------------------------------- exact-output verdicts
+
+
+def test_an_exact_output_missing_after_some_runs_is_not_ok(tmp_path):
+    from sciproof.calibrate import _judge
+
+    item = {"path": "out.txt", "compare": {"mode": "exact"}}
+    spread = _judge(tmp_path, item, [None, "hash1"], [])
+    assert not spread.ok and spread.message == "missing after some runs"
+
+
+def test_an_exact_output_with_different_hashes_is_not_deterministic(tmp_path):
+    from sciproof.calibrate import _judge
+
+    item = {"path": "out.txt", "compare": {"mode": "exact"}}
+    spread = _judge(tmp_path, item, ["hash1", "hash2"], [])
+    assert not spread.ok and "not deterministic" in spread.message
+    assert "--output-numeric" in spread.message  # tells the author how to declare varying numbers
+
+
+def test_an_exact_output_differing_from_the_recording_is_not_ok(tmp_path):
+    from sciproof.calibrate import _judge
+
+    item = {"path": "out.txt", "sha256": "recorded", "compare": {"mode": "exact"}}
+    spread = _judge(tmp_path, item, ["new_hash", "new_hash"], [])
+    assert not spread.ok
+    assert spread.message == "identical in every run, but different from the recorded one"

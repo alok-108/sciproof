@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import io
 import os
+import subprocess
 import sys
 
 import pytest
@@ -181,3 +183,42 @@ def test_a_detached_grandchild_cannot_hold_the_timeout_open(tmp_path):
     grandchild_pid = int(pid_file.read_text())
     os.kill(grandchild_pid, signal.SIGKILL)  # it survived the kill by design; clean it up
     assert elapsed < 30  # the drain step returned instead of waiting out the 60s
+
+
+# ------------------------------------------------- draining a killed process
+
+
+class _FakeProcess:
+    """Just enough of ``subprocess.Popen`` for ``_stop``: a dead pid and a failing drain."""
+
+    def __init__(self, drain_error):
+        self.pid = 1 << 22  # no such process group: the tree kill must be best-effort
+        self.stdout = io.BytesIO(b"out")
+        self.stderr = io.BytesIO(b"err")
+        self._drain_error = drain_error
+        self.killed = False
+        self.waited = False
+
+    def kill(self):
+        self.killed = True
+
+    def communicate(self, timeout=None):
+        raise self._drain_error
+
+    def wait(self):
+        self.waited = True
+        return -9
+
+
+@pytest.mark.parametrize(
+    "drain_error",
+    [subprocess.TimeoutExpired(cmd="tool", timeout=5.0), OSError("stream went away")],
+    ids=["timeout", "os-error"],
+)
+def test_stop_closes_streams_and_waits_when_draining_fails(drain_error):
+    from sciproof.runner import _stop
+
+    process = _FakeProcess(drain_error)
+    _stop(process)  # must not raise
+    assert process.stdout.closed and process.stderr.closed
+    assert process.waited
