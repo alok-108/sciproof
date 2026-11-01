@@ -447,3 +447,22 @@ def test_snapshot_unsafe_path(tmp_path):
     path, reason = _snapshot(tmp_path, item)
     assert path is None
     assert reason is not None and "unsafe snapshot path" in reason
+
+
+def test_snapshot_missing_path(tmp_path):
+    from sciproof.diffmanifests import _snapshot
+
+    item = {"compare": {"snapshot": {"path": "missing.json", "sha256": "0" * 64}}}
+    path, reason = _snapshot(tmp_path, item)
+    assert path is None
+    assert reason is not None and "is missing" in reason
+
+
+def test_snapshot_modified_path(tmp_path):
+    from sciproof.diffmanifests import _snapshot
+
+    (tmp_path / "snapshot.json").write_text("changed")
+    item = {"compare": {"snapshot": {"path": "snapshot.json", "sha256": "0" * 64}}}
+    path, reason = _snapshot(tmp_path, item)
+    assert path is None
+    assert reason is not None and "was modified" in reason
