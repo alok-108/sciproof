@@ -1,11 +1,12 @@
 """Root dependency pins are captured as metadata and compared without reading them again."""
 
+import errno
 import hashlib
 import json
 
 import pytest
 
-from sciproof import load_manifest
+from sciproof import environment, load_manifest
 from sciproof.diffmanifests import diff_manifests
 from sciproof.errors import CaptureError, ManifestError
 
@@ -85,6 +86,18 @@ def test_lockfile_symlink_loop_is_a_clean_capture_error(project):
     with pytest.raises(CaptureError, match="cannot record lockfile"):
         project.capture()
     assert project.runs() == 0
+
+
+def test_unreadable_lockfile_is_a_clean_capture_error(tmp_path, monkeypatch):
+    path = tmp_path / "uv.lock"
+    path.write_text("pins")
+
+    def refuse_hash(_path):
+        raise OSError(errno.EACCES, "Permission denied")
+
+    monkeypatch.setattr(environment, "sha256_file", refuse_hash)
+    with pytest.raises(CaptureError, match="cannot record lockfile 'uv.lock':.*Permission denied"):
+        environment.lockfile_hashes(tmp_path)
 
 
 def test_diff_accepts_legacy_manifest_without_lockfiles(project):
