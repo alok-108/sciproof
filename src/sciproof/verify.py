@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import shutil
 import tempfile
 from collections.abc import Callable, Sequence
@@ -490,6 +491,16 @@ def _compare_environment(base: Path, manifest: dict[str, Any]) -> list[str]:
         elif name not in recorded_vars:
             differences.append(f"environment variable {name} is set now, was not at capture time")
         elif now_vars[name] != recorded_vars[name]:
+            differences.append(f"environment variable {name} differs from the recorded value")
+    for name, value in recorded_env.get("recorded_env", {}).items():
+        now = os.environ.get(name)
+        if value is None and now is not None:
+            differences.append(
+                f"environment variable {name} was absent at capture time, is set now"
+            )
+        elif value is not None and now is None:
+            differences.append(f"environment variable {name} was set at capture time, not now")
+        elif value is not None and now != value:
             differences.append(f"environment variable {name} differs from the recorded value")
     differences.extend(_compare_hardware(recorded_env.get("hardware")))
     return differences

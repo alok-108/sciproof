@@ -249,6 +249,7 @@ def record(
     force: bool = False,
     note: str | None = None,
     record_hardware: bool = False,
+    record_env: list[str] | None = None,
 ) -> RecordResult:
     """Find the inputs and outputs of ``argv`` by running it, then capture it with them."""
     if not NAME_RE.fullmatch(name):
@@ -386,6 +387,7 @@ def record(
         force=force,
         note=note,
         record_hardware=record_hardware,
+        record_env=record_env,
     )
     return RecordResult(
         capture=result,
@@ -395,7 +397,9 @@ def record(
         tolerances=tolerances,
         excluded=excluded,
         notes=notes,
-        command_line=_command_line(name, argv, chosen_inputs, exact, numeric, tolerances),
+        command_line=_command_line(
+            name, argv, chosen_inputs, exact, numeric, tolerances, record_env
+        ),
     )
 
 
@@ -406,11 +410,14 @@ def _command_line(
     exact: list[str],
     numeric: list[str],
     tolerances: dict[str, dict[str, Any]],
+    record_env: list[str] | None = None,
 ) -> str:
     parts = ["sciproof", "capture", "--name", name]
     for flag, paths in (("--input", inputs), ("--output", exact), ("--output-numeric", numeric)):
         for path in sorted(paths):
             parts += [flag, path]
+    for env_name in record_env or []:
+        parts += ["--record-env", env_name]
     for path, settings in sorted(tolerances.items()):
         parts += ["--tolerance", path, " ".join(f"{k}={v:g}" for k, v in settings.items())]
     return shlex.join([*parts, "--", *argv])

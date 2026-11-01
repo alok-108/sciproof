@@ -60,6 +60,7 @@ Every field of a manifest. Array entries are written as `[]`.
 | `environment.python` | Python version, implementation and byte order. |
 | `environment.platform` | Operating system name, release, machine type and platform string. |
 | `environment.env_vars` | Values of a fixed allowlist of non-secret environment variables that were set at capture time. |
+| `environment.recorded_env` | Optional, schema 1.1, from `capture --record-env NAME` (repeatable): `{NAME: value}` for each explicitly requested variable, or `null` when it was unset at capture time. Names that look secret-like (containing TOKEN, SECRET, KEY or PASSWORD) are refused. `diff` reports changes to these variables and `update` keeps the declaration, re-recording the current values. |
 | `environment.lockfiles` | Optional array of `{path, sha256}` records for root `environment.yml`, `poetry.lock`, `requirements.txt` and `uv.lock`, sorted by path and hashed before execution. Empty when none exist; older manifests may omit it. Only hashes are stored, never contents. |
 | `dependencies` | Name and version of every package installed for that interpreter. |
 | `git` | Commit, branch and whether the working tree had uncommitted or untracked changes before the run; `null` outside a Git repository. |
@@ -98,6 +99,7 @@ Two optional fields, both schema 1.1:
 
 * `note`: free text given with `capture --note` (1 to 2000 characters, no NUL). It is for people:
   why the run was made, what to look at. It is never interpreted, and it is escaped when shown.
+* `environment.recorded_env`, from `capture --record-env NAME` (see above).
 * `environment.hardware`, from `capture --record-hardware`:
 
 ```jsonc

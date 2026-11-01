@@ -17,6 +17,7 @@ from sciproof.environment import (
     interpreter_info,
     lockfile_hashes,
     platform_info,
+    recorded_env_vars,
     selected_env_vars,
 )
 from sciproof.errors import CaptureError, ManifestError, SciProofError, UnsafePathError
@@ -182,6 +183,7 @@ def capture(
     claims: list[tuple[str, str]] | None = None,
     note: str | None = None,
     record_hardware: bool = False,
+    record_env: list[str] | None = None,
 ) -> CaptureResult:
     """Run ``argv`` once in ``base`` and write ``<name>.sciproof.json`` there.
 
@@ -422,7 +424,7 @@ def capture(
             "schema": SCHEMA,
             "schema_version": (
                 SCHEMA_VERSION_DIRECTORIES
-                if has_directory or claim_records or note or record_hardware
+                if has_directory or claim_records or note or record_hardware or record_env
                 else SCHEMA_VERSION
             ),
             "name": name,
@@ -438,6 +440,7 @@ def capture(
                 },
                 "platform": platform_info(),
                 "env_vars": selected_env_vars(),
+                **({"recorded_env": recorded_env_vars(record_env)} if record_env else {}),
                 "lockfiles": lockfiles,
                 **({"hardware": hardware_info()} if record_hardware else {}),
             },
