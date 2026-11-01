@@ -30,7 +30,6 @@ from sciproof.textutil import safe_text
 NAMESPACE = "sciproof-manifest@hayagrivai-labs"
 SIGNATURE_SUFFIX = ".sig"
 TIMEOUT_SECONDS = 60
-MAX_PRINCIPALS_TRIED = 5
 
 _FINGERPRINT = re.compile(r"with (\S+) key (SHA256:\S+)")
 
@@ -156,7 +155,7 @@ def check_signature(manifest_path: Path | str, allowed_signers: Path | str) -> S
                 name,
             )
         data = manifest_path.read_bytes()
-        for principal in principals[:MAX_PRINCIPALS_TRIED]:
+        for principal in principals:  # Try all principals: no fixed limit, or a legitimate principal after the fifth would be reported as bad (see #246).
             checked = _run(
                 [
                     executable,
