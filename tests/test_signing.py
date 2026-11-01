@@ -226,3 +226,37 @@ def test_cli_sign_and_verify(project, tmp_path, capsys):
     assert (
         cli.main(["sign", "exp.sciproof.json", "--key", str(tmp_path / "nokey")]) == cli.EXIT_ERROR
     )
+
+
+def test_a_signature_whose_principal_is_after_the_fifth_is_still_good(signed, monkeypatch):
+    principals = [
+        "p1@example.org",
+        "p2@example.org",
+        "p3@example.org",
+        "p4@example.org",
+        "p5@example.org",
+        "p6@example.org",
+    ]
+
+    def fake_run(arguments, data=None):
+        if "find-principals" in arguments:
+            return subprocess.CompletedProcess(
+                arguments,
+                0,
+                stdout=("\n".join(principals) + "\n").encode(),
+                stderr=b"",
+            )
+        principal = arguments[arguments.index("-I") + 1]
+        if principal == "p6@example.org":
+            return subprocess.CompletedProcess(
+                arguments,
+                0,
+                stdout=b"Good signature with ED25519 key SHA256:abcdef",
+                stderr=b"",
+            )
+        return subprocess.CompletedProcess(arguments, 1, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr("sciproof.signing._run", fake_run)
+    result = check_signature(signed.manifest, signed.allowed)
+    assert result.status == "good"
+    assert result.principal == "p6@example.org"
