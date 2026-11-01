@@ -1,4 +1,5 @@
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -15,7 +16,7 @@ def test_recorded_env_values_and_absent(tmp_path, monkeypatch):
     (tmp_path / "run.py").write_text("open('out.txt', 'w').write('x')\n")
     result = capture(
         name="t",
-        argv=["python3", "run.py"],
+        argv=[sys.executable, "run.py"],
         base=tmp_path,
         inputs=["run.py"],
         outputs=["out.txt"],
@@ -41,7 +42,7 @@ def test_diff_reports_recorded_env_change(tmp_path, monkeypatch):
     monkeypatch.setenv("SP_TEST_VAR", "one")
     a = capture(
         name="a",
-        argv=["python3", "run.py"],
+        argv=[sys.executable, "run.py"],
         base=tmp_path,
         inputs=["run.py"],
         outputs=["out.txt"],
@@ -51,7 +52,7 @@ def test_diff_reports_recorded_env_change(tmp_path, monkeypatch):
     monkeypatch.setenv("SP_TEST_VAR", "two")
     b = capture(
         name="b",
-        argv=["python3", "run.py"],
+        argv=[sys.executable, "run.py"],
         base=tmp_path,
         inputs=["run.py"],
         outputs=["out.txt"],
