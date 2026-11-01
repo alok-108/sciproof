@@ -52,9 +52,19 @@ ruff check .
 ruff format --check .
 python -m pytest
 python examples/demo.py
+python -m coverage run -m pytest
+python -m coverage report -m
 ```
 
 CI runs the same on Python 3.11, 3.12 and 3.13 on Linux, Windows and macOS.
+A separate `coverage` job (Linux, Python 3.12 only) prints the coverage
+report with missing lines. It fails only if the tests fail, not because
+of coverage: there is no threshold yet. Baseline (2026-11-01, local
+run): 97% of `src/sciproof` statements covered; lowest modules are
+`runner.py` (80%), `latex.py` (92%), and `numeric.py`/`cli.py`/`capture.py`
+(95%). Platform-specific branches (Windows paths, symlinks,
+`ssh-keygen` absent) are expected to show as uncovered on the Linux
+coverage job and are not, by themselves, a gap to chase.
 
 ## Guidelines
 

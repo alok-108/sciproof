@@ -56,7 +56,7 @@ Discussions = "https://github.com/hayagrivai-labs/sciproof/discussions"
 [project.optional-dependencies]
 numpy = ["numpy>=1.26"]
 completion = ["argcomplete>=3"]
-dev = ["pytest>=8", "ruff>=0.5", "numpy>=1.26", "argcomplete>=3", "hypothesis>=6"]
+dev = ["pytest>=8", "ruff>=0.5", "numpy>=1.26", "argcomplete>=3", "hypothesis>=6", "coverage>=7"]
 
 [project.scripts]
 sciproof = "sciproof.cli:main"
@@ -86,3 +86,9 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "C4", "PIE", "RET"]
 # Tests deliberately use assert and run subprocesses with fixed arguments.
 "tests/*" = ["S101", "S603", "S607", "S105", "S106"]
 "examples/*" = ["S311"]
+
+[tool.coverage.run]
+source = ["src/sciproof"]
+
+[tool.coverage.report]
+show_missing = true
