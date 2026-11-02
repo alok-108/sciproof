@@ -392,3 +392,51 @@ def test_capture_nested_outputs_raises(project):
             outputs=["data", "data/result.csv"],
             numeric_outputs=[],
         )
+
+
+# ------------------------------------------------- scan and internal errors
+
+
+def test_a_directory_that_cannot_be_scanned_becomes_a_capture_error(project, monkeypatch):
+    import sciproof.capture as capture_module
+    from sciproof.treehash import TreeError
+
+    def broken_scan(path):
+        raise TreeError("corrupt tree")
+
+    monkeypatch.setattr(capture_module, "scan_tree", broken_scan)
+    with pytest.raises(CaptureError, match="output: corrupt tree"):
+        capture_module._scan_directory(project.root, "output")
+
+
+def test_an_unreadable_directory_digests_as_none(project, monkeypatch):
+    import sciproof.capture as capture_module
+    from sciproof.treehash import TreeError
+
+    assert capture_module._current_digest(project.root / "no-such-dir", "directory") is None
+
+    def broken_scan(path):
+        raise TreeError("corrupt tree")
+
+    monkeypatch.setattr(capture_module, "scan_tree", broken_scan)
+    (project.root / "real-dir").mkdir()
+    assert capture_module._current_digest(project.root / "real-dir", "directory") is None
+
+
+def test_an_internal_manifest_bug_is_reported_as_an_internal_error(project, monkeypatch):
+    import sciproof.capture as capture_module
+    from sciproof.errors import SciProofError
+
+    def broken_write(path, manifest):
+        raise SciProofError("schema bug")
+
+    monkeypatch.setattr(capture_module, "write_manifest", broken_write)
+    with pytest.raises(CaptureError, match="internal error"):
+        capture_module.capture(
+            name="exp",
+            argv=[sys.executable, "experiment.py"],
+            base=project.root,
+            inputs=["data.json", "experiment.py"],
+            outputs=["out/exact.txt"],
+            numeric_outputs=["out/result.json"],
+        )
