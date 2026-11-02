@@ -155,7 +155,11 @@ def check_signature(manifest_path: Path | str, allowed_signers: Path | str) -> S
                 name,
             )
         data = manifest_path.read_bytes()
-        for principal in principals:  # Try all principals: no fixed limit, or a legitimate principal after the fifth would be reported as bad (see #246).
+        # Try every principal find-principals returned. There is no
+        # arbitrary cutoff: stopping after a fixed number would falsely
+        # report a valid signature as bad when its principal is later
+        # in the list (see #246).
+        for principal in principals:
             checked = _run(
                 [
                     executable,
