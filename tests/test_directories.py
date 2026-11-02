@@ -647,7 +647,10 @@ def test_a_directory_over_the_file_limit_is_rejected(tmp_path):
 
 @pytest.mark.skipif(sys.platform == "win32", reason="invalid-UTF-8 file names are POSIX-only")
 def test_a_file_name_that_is_not_valid_utf8_is_rejected(tmp_path):
-    fd = os.open(os.fsencode(tmp_path) + b"/bad-\xff.txt", os.O_CREAT | os.O_WRONLY)
+    try:
+        fd = os.open(os.fsencode(tmp_path) + b"/bad-\xff.txt", os.O_CREAT | os.O_WRONLY)
+    except OSError:
+        pytest.skip("filesystem refuses invalid-UTF-8 file names (e.g. APFS on macOS)")
     os.close(fd)
     with pytest.raises(TreeError, match="not valid UTF-8"):
         scan_tree(tmp_path)
