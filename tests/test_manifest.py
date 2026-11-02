@@ -226,3 +226,57 @@ def test_manifest_bytes_use_lf_line_endings_on_every_os(project):
     data = json.loads(raw)
     write_manifest(project.manifest, data)
     assert project.manifest.read_bytes() == raw
+
+
+def test_absent_directory_output_must_have_no_files(good):
+    data = copy.deepcopy(good)
+    data["schema_version"] = "1.1"
+    output = data["outputs"][0]
+    output.update(
+        kind="directory",
+        present=False,
+        sha256=None,
+        size=0,
+        files=[{"path": "a.txt", "sha256": "0" * 64, "size": 1}],
+    )
+    with pytest.raises(ManifestError, match="must be empty when the directory is not present"):
+        validate_manifest(data)
+
+
+def test_duplicate_output_paths_are_rejected(good):
+    data = copy.deepcopy(good)
+    data["outputs"].append(copy.deepcopy(data["outputs"][0]))
+    with pytest.raises(ManifestError, match="duplicate path"):
+        validate_manifest(data)
+
+
+def test_output_path_cannot_collide_with_an_input_path(good):
+    data = copy.deepcopy(good)
+    data["outputs"][0]["path"] = data["inputs"][0]["path"]
+    with pytest.raises(ManifestError, match="duplicate path"):
+        validate_manifest(data)
+
+
+def test_numeric_output_must_be_present(good):
+    data = copy.deepcopy(good)
+    output = data["outputs"][1]
+    output.update(present=False, sha256=None, size=0)
+    with pytest.raises(ManifestError, match="a numeric output must be present"):
+        validate_manifest(data)
+
+
+def test_directory_output_cannot_use_numeric_comparison(good):
+    from sciproof.treehash import tree_digest
+
+    data = copy.deepcopy(good)
+    data["schema_version"] = "1.1"
+    output = data["outputs"][0]
+    output.update(
+        kind="directory",
+        files=[],
+        sha256=tree_digest([]),
+        size=0,
+        compare=copy.deepcopy(data["outputs"][1]["compare"]),
+    )
+    with pytest.raises(ManifestError, match="a directory can only be compared exactly"):
+        validate_manifest(data)
