@@ -73,6 +73,21 @@ def load_numeric(path: Path) -> list[Leaf]:
             _flatten_json(json.loads(text, object_pairs_hook=reject_duplicate_keys), "$", leaves)
         except (ValueError, RecursionError) as exc:
             raise NumericFormatError(f"{path.name} is not valid JSON: {exc}") from exc
+        # A dotted key can produce the same location as a nested value
+        # (e.g. {"a": {"b": 0.1}, "a.b": 0.99} both give $.a.b). Turning
+        # the leaves into a dict would silently keep one value and could
+        # make a claim PASS on the wrong value, so reject the file instead.
+        seen: set[str] = set()
+        ambiguous: list[str] = []
+        for location, _value in leaves:
+            if location in seen and location not in ambiguous:
+                ambiguous.append(location)
+            seen.add(location)
+        if ambiguous:
+            raise NumericFormatError(
+                f"{path.name} has ambiguous location(s) {', '.join(sorted(ambiguous))}: "
+                "a JSON key containing '.' or brackets collides with a nested location"
+            )
         return leaves
 
     delimiter = "\t" if suffix == ".tsv" else ","
