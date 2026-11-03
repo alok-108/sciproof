@@ -7,12 +7,14 @@ equal exactly. Two NaNs compare equal; infinities must match in sign.
 
 from __future__ import annotations
 
+import ast
 import contextlib
 import csv
 import io
 import json
 import math
 import re
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -120,14 +122,93 @@ def _load_npy(path: Path) -> list[Leaf]:
     return [("shape", list(array.shape)), ("dtype", str(array.dtype)), ("data", array)]
 
 
+def _npz_header_array_bytes(stream, np) -> int | None:
+    """Return the array bytes declared by one ``.npy`` header, or None if unparsable.
+
+    Only the header is read, never the array data, so this does not allocate
+    the array. It is a second check on top of the ZIP directory sizes, which
+    an attacker can lie about in the central directory.
+    """
+    try:
+        magic = stream.read(6)
+        if magic != b"\x93NUMPY":
+            return None
+        version = stream.read(2)
+        if len(version) != 2:
+            return None
+        if version == b"\x01\x00":
+            header_len_bytes = stream.read(2)
+            if len(header_len_bytes) != 2:
+                return None
+            header_len = int.from_bytes(header_len_bytes, "little")
+        elif version in (b"\x02\x00", b"\x03\x00"):
+            header_len_bytes = stream.read(4)
+            if len(header_len_bytes) != 4:
+                return None
+            header_len = int.from_bytes(header_len_bytes, "little")
+        else:
+            return None
+        header = stream.read(header_len)
+        if len(header) != header_len:
+            return None
+        info = ast.literal_eval(header.decode("latin1").strip())
+        shape = info["shape"]
+        dtype = np.dtype(info["descr"])
+        return math.prod(shape) * dtype.itemsize
+    except Exception:
+        return None
+
+
+def _check_npz_decompressed_size(path: Path, np) -> None:
+    """Reject an ``.npz`` whose decompressed content exceeds the numeric limit.
+
+    This runs before any array is loaded. The on-disk size check in
+    ``load_numeric`` only bounds the compressed file, so a highly
+    compressible archive (e.g. all zeros, ~1000:1) could otherwise expand
+    to gigabytes in memory. Both checks use the same limit and error as
+    oversized ``.json``/``.csv`` files.
+    """
+    try:
+        with zipfile.ZipFile(path) as archive:
+            infos = archive.infolist()
+            if sum(info.file_size for info in infos) > MAX_NUMERIC_FILE_BYTES:
+                raise NumericFormatError(f"{path.name} is larger than the numeric comparison limit")
+            total_array_bytes = 0
+            for info in infos:
+                if not info.filename.endswith(".npy"):
+                    continue
+                array_bytes = None
+                try:
+                    with archive.open(info) as stream:
+                        array_bytes = _npz_header_array_bytes(stream, np)
+                except Exception:
+                    array_bytes = None
+                if array_bytes is None:
+                    continue
+                total_array_bytes += array_bytes
+                if total_array_bytes > MAX_NUMERIC_FILE_BYTES:
+                    raise NumericFormatError(
+                        f"{path.name} is larger than the numeric comparison limit"
+                    )
+    except NumericFormatError:
+        raise
+    except Exception as exc:
+        raise NumericFormatError(f"{path.name} is not a valid .npz archive: {exc}") from exc
+
+
 def _load_npz(path: Path) -> list[Leaf]:
-    """Load a NumPy ``.npz`` archive containing multiple arrays (needs optional NumPy extra)."""
+    """Load a NumPy ``.npz`` archive containing multiple arrays (needs optional NumPy extra).
+
+    The 64 MiB numeric limit applies to the total decompressed array
+    bytes, not just the compressed file size on disk.
+    """
     try:
         import numpy as np
     except ImportError as exc:
         raise NumericFormatError(
             f"comparing {path.name} needs NumPy: pip install 'sciproof[numpy]'"
         ) from exc
+    _check_npz_decompressed_size(path, np)
     try:
         archive = np.load(path, allow_pickle=False)
     except (ValueError, OSError, EOFError) as exc:
@@ -141,11 +222,17 @@ def _load_npz(path: Path) -> list[Leaf]:
         raise NumericFormatError(f"cannot inspect arrays in {path.name}: {exc}") from exc
 
     leaves: list[Leaf] = [("arrays", len(file_keys))]
+    total_loaded_bytes = 0
     for key in file_keys:
         try:
             array = archive[key]
         except Exception as exc:
             raise NumericFormatError(f"cannot read array {key!r} from {path.name}: {exc}") from exc
+        # Defence in depth: the pre-load check above should already have
+        # rejected an oversized archive, but never keep loading past it.
+        total_loaded_bytes += getattr(array, "nbytes", 0)
+        if total_loaded_bytes > MAX_NUMERIC_FILE_BYTES:
+            raise NumericFormatError(f"{path.name} is larger than the numeric comparison limit")
         if not isinstance(array, np.ndarray) or array.dtype.kind not in NUMPY_KINDS:
             raise NumericFormatError(
                 f"{path.name} [{key}]: only numeric, boolean and complex arrays are supported "
