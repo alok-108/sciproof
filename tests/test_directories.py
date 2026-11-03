@@ -625,3 +625,32 @@ def test_scan_tree_parallel_execution_many_files(tmp_path):
     for i, e in enumerate(entries):
         assert e.size == len(f"content_{i}")
         assert len(e.sha256) == 64
+
+
+# ----------------------------------------------------- scan_tree refusals
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="creating symlinks needs privileges on Windows")
+def test_a_symlink_inside_a_scanned_directory_is_rejected(tmp_path):
+    (tmp_path / "real.txt").write_text("x")
+    (tmp_path / "link.txt").symlink_to(tmp_path / "real.txt")
+    with pytest.raises(TreeError, match="is a symbolic link"):
+        scan_tree(tmp_path)
+
+
+def test_a_directory_over_the_file_limit_is_rejected(tmp_path):
+    for name in ("a.txt", "b.txt", "c.txt"):
+        (tmp_path / name).write_text(name)
+    with pytest.raises(TreeError, match="more than 2 files"):
+        scan_tree(tmp_path, limit=2)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="invalid-UTF-8 file names are POSIX-only")
+def test_a_file_name_that_is_not_valid_utf8_is_rejected(tmp_path):
+    try:
+        fd = os.open(os.fsencode(tmp_path) + b"/bad-\xff.txt", os.O_CREAT | os.O_WRONLY)
+    except OSError:
+        pytest.skip("filesystem refuses invalid-UTF-8 file names (e.g. APFS on macOS)")
+    os.close(fd)
+    with pytest.raises(TreeError, match="not valid UTF-8"):
+        scan_tree(tmp_path)
