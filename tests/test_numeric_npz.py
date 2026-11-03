@@ -58,3 +58,23 @@ def test_corrupt_npz_file_handled(tmp_path):
     bad.write_bytes(b"PK\x03\x04corrupted zip archive")
     with pytest.raises(NumericFormatError):
         load_numeric(bad)
+
+
+def test_npz_decompressed_size_over_limit_is_rejected_without_loading(tmp_path):
+    # Regression for #221: a highly compressible archive that is tiny on
+    # disk (zeros compress ~1000:1) but expands past 64 MiB must be
+    # rejected before any array is allocated, with the same error as
+    # other oversized numeric files. 9,000,000 float64 zeros are 72 MiB
+    # decompressed, yet compress to well under 1 MiB on disk.
+    path = tmp_path / "big.npz"
+    np.savez_compressed(path, a=np.zeros(9_000_000, dtype=float))
+    assert path.stat().st_size < 1024 * 1024
+    with pytest.raises(NumericFormatError, match="larger than the numeric comparison limit"):
+        load_numeric(path)
+
+
+def test_npz_decompressed_size_under_limit_still_loads(tmp_path):
+    path = tmp_path / "small.npz"
+    np.savez_compressed(path, a=np.zeros(1000, dtype=float))
+    leaves = load_numeric(path)
+    assert ("arrays", 1) in leaves
