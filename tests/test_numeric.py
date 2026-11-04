@@ -95,6 +95,21 @@ def test_unsupported_or_broken_files_raise(tmp_path, name, content):
         load_numeric(tmp_path / name)
 
 
+def test_dotted_key_shadowing_a_nested_location_is_ambiguous(tmp_path):
+    # Regression for #237: {"a": {"b": 0.1}, "a.b": 0.99} flattens to
+    # $.a.b twice. Silently keeping one value would let a claim on the
+    # nested 0.1 PASS against the top-level 0.99, so the file is rejected.
+    (tmp_path / "a.json").write_text('{"a": {"b": 0.1}, "a.b": 0.99}')
+    with pytest.raises(NumericFormatError, match=r"ambiguous.*\$\.a\.b"):
+        load_numeric(tmp_path / "a.json")
+
+
+def test_bracket_key_shadowing_a_list_index_is_ambiguous(tmp_path):
+    (tmp_path / "a.json").write_text('{"a": [2], "a[0]": 1}')
+    with pytest.raises(NumericFormatError, match=r"ambiguous.*\$\.a\[0\]"):
+        load_numeric(tmp_path / "a.json")
+
+
 def test_non_utf8_file_raises(tmp_path):
     (tmp_path / "a.csv").write_bytes(b"\xff\xfe1,2")
     with pytest.raises(NumericFormatError):
