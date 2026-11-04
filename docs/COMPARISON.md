@@ -85,7 +85,9 @@ Consequences worth knowing:
 
 At most 10 differences are listed; the rest are summarised. A file that cannot be compared at
 all (invalid JSON, unsupported format, non-UTF-8 text, larger than 64 MiB) is reported as `FAIL`
-with the reason.
+with the reason. For `.npz` archives, the 64 MiB limit applies to the total decompressed
+array bytes, not just the compressed file size on disk, so a small highly compressible
+archive cannot expand to gigabytes in memory during comparison.
 
 ## What is not compared
 
