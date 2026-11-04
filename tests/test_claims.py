@@ -8,7 +8,15 @@ import sys
 import pytest
 
 from sciproof import cli
-from sciproof.claims import MISSING, claim_text, evaluate, json_safe, parse_claim
+from sciproof.claims import (
+    MAX_LOCATION_LENGTH,
+    MISSING,
+    claim_text,
+    evaluate,
+    json_safe,
+    location_matches_file,
+    parse_claim,
+)
 from sciproof.diffmanifests import diff_manifests
 from sciproof.errors import CaptureError, ManifestError, UsageError
 from sciproof.manifest import load_manifest
@@ -77,6 +85,16 @@ def test_an_approximate_claim_carries_its_tolerances():
 def test_bad_claims_are_refused_with_an_explanation(output, expression, message):
     with pytest.raises(UsageError, match=message):
         parse_claim(output, expression)
+
+
+def test_locations_longer_than_the_limit_do_not_match():
+    location = "$." + "a" * MAX_LOCATION_LENGTH
+    assert location_matches_file(location, OUT) is False
+
+
+def test_non_finite_numeric_claim_value_is_refused():
+    with pytest.raises(UsageError, match="the value must be finite"):
+        parse_claim(OUT, "$.loss <= 1e999")
 
 
 def test_claim_text_is_what_a_person_would_write():
