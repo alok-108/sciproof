@@ -27,6 +27,40 @@ def test_expand_glob_matches(tmp_path):
     assert matches == ["a.txt", "b.txt"]
 
 
+def test_expand_glob_drops_directories(tmp_path):
+    (tmp_path / "out").mkdir()
+    (tmp_path / "out" / "a.txt").write_text("a")
+    (tmp_path / "out" / "sub").mkdir()
+    (tmp_path / "out" / "sub" / "b.txt").write_text("b")
+
+    assert expand_glob(tmp_path, "out/**/*") == ["out/a.txt", "out/sub/b.txt"]
+
+
+def test_expand_glob_records_file_symlink_by_its_own_path(tmp_path):
+    (tmp_path / "real.txt").write_text("real")
+    (tmp_path / "link.txt").symlink_to("real.txt")
+
+    assert expand_glob(tmp_path, "*.txt") == ["link.txt", "real.txt"]
+
+
+def test_expand_glob_does_not_follow_directory_symlinks(tmp_path):
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "inner.txt").write_text("inner")
+    (tmp_path / "linkdir").symlink_to("sub", target_is_directory=True)
+
+    assert expand_glob(tmp_path, "*") == []
+    assert expand_glob(tmp_path, "linkdir/*.txt") == []
+
+
+def test_expand_glob_drops_outside_and_broken_symlinks(tmp_path):
+    outside = tmp_path.parent / "outside.txt"
+    outside.write_text("outside")
+    (tmp_path / "link_out.txt").symlink_to(outside)
+    (tmp_path / "link_broken.txt").symlink_to("missing.txt")
+
+    assert expand_glob(tmp_path, "*.txt") == []
+
+
 def test_capture_with_input_glob(project):
     (project.root / "split_1.json").write_text('{"a": 1}')
     (project.root / "split_2.json").write_text('{"b": 2}')
