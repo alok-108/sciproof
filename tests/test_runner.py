@@ -80,6 +80,14 @@ def test_command_timeout_kills_process_and_raises(tmp_path):
         run_command([sys.executable, "-c", "import time; time.sleep(5)"], tmp_path, timeout=0.1)
 
 
+def test_huge_timeout_is_rejected_before_the_command_starts(tmp_path):
+    marker = tmp_path / "started.txt"
+    script = f"import pathlib; pathlib.Path({str(marker)!r}).write_text('started')"
+    with pytest.raises(CommandNotRunnable, match="at most"):
+        run_command([sys.executable, "-c", script], tmp_path, timeout=10**12)
+    assert not marker.exists()
+
+
 def test_command_in_nonexistent_directory_raises(tmp_path):
     with pytest.raises(CommandNotRunnable):
         run_command([sys.executable, "-c", "pass"], tmp_path / "missing", timeout=30)
