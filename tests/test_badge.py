@@ -80,3 +80,33 @@ def test_an_unwritable_path_is_a_clean_error(project, capsys):
     project.capture()
     assert cli.main(["badge", project.manifest.name, "-o", "nodir/b.svg"]) == cli.EXIT_ERROR
     assert "cannot write" in capsys.readouterr().err
+
+
+def test_the_default_date_is_today_in_utc():
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
+    svg = render_badge(Status.PASS, rerun=False)  # no `when` argument
+    assert f"· integrity · {today}" in svg
+    _svg(svg)  # well-formed XML
+
+
+def test_special_characters_are_escaped_in_the_svg(monkeypatch):
+    monkeypatch.setattr("sciproof.badge._LABEL", 'a & <b> "c"')
+    svg = render_badge(Status.PASS, rerun=False, when=WHEN)
+    _svg(svg)  # well-formed XML despite &, <, > and "
+    assert "&amp;" in svg and "&lt;b&gt;" in svg and "&quot;" in svg
+    assert 'aria-label="a &amp; &lt;b&gt; &quot;c&quot;' in svg
+
+
+def test_a_missing_manifest_is_a_clean_error(capsys):
+    assert cli.main(["badge", "non_existent.json"]) == cli.EXIT_ERROR
+    err = capsys.readouterr().err
+    assert "manifest not found" in err
+    assert "Traceback" not in err
+
+
+def test_a_corrupt_manifest_is_a_clean_error(project, capsys):
+    (project.root / "broken.json").write_text("{ not json", encoding="utf-8")
+    assert cli.main(["badge", "broken.json"]) == cli.EXIT_ERROR
+    err = capsys.readouterr().err
+    assert "not valid JSON" in err
+    assert "Traceback" not in err
