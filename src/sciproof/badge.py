@@ -32,7 +32,7 @@ def render_badge(status: Status, *, rerun: bool, when: datetime | None = None) -
     right = round(len(message) * _CHAR_WIDTH + _PADDING * 2)
     width = left + right
     colour = _COLOURS[status]
-    description = escape(f"{_LABEL}: {message}")
+    description = escape(f"{_LABEL}: {message}", {'"': "&quot;"})
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="20" role="img" '
         f'aria-label="{description}">\n'
@@ -48,7 +48,7 @@ def render_badge(status: Status, *, rerun: bool, when: datetime | None = None) -
         "  </g>\n"
         '  <g fill="#fff" text-anchor="middle" '
         'font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">\n'
-        f'    <text x="{left / 2:.0f}" y="14">{_LABEL}</text>\n'
+        f'    <text x="{left / 2:.0f}" y="14">{escape(_LABEL)}</text>\n'
         f'    <text x="{left + right / 2:.0f}" y="14">{escape(message)}</text>\n'
         "  </g>\n"
         "</svg>\n"
