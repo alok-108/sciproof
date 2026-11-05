@@ -58,6 +58,48 @@ def test_capture_with_unmatched_input_glob_fails(project):
         )
 
 
+def test_capture_with_unmatched_output_glob_fails_and_writes_no_manifest(project):
+    with pytest.raises(CaptureError, match="no files matched output glob"):
+        capture(
+            name="glob_out_fail",
+            argv=[sys.executable, "-c", "import sys; sys.exit(0)"],
+            base=project.root,
+            inputs=[],
+            outputs=["out_glob/*.txt"],
+            numeric_outputs=[],
+        )
+    assert not (project.root / "glob_out_fail.sciproof.json").exists()
+
+
+def test_capture_with_unmatched_output_glob_fails_even_when_command_fails(project):
+    # A failed command still records explicit missing outputs, but an output
+    # glob that matched nothing has no file to record, so it must not be
+    # silently dropped into a manifest with no declared outputs.
+    with pytest.raises(CaptureError, match="no files matched output glob"):
+        capture(
+            name="glob_out_fail_cmd",
+            argv=[sys.executable, "-c", "import sys; sys.exit(1)"],
+            base=project.root,
+            inputs=[],
+            outputs=["out_glob/*.txt"],
+            numeric_outputs=[],
+        )
+    assert not (project.root / "glob_out_fail_cmd.sciproof.json").exists()
+
+
+def test_capture_with_unmatched_numeric_output_glob_fails(project):
+    with pytest.raises(CaptureError, match="no files matched output-numeric glob"):
+        capture(
+            name="glob_num_fail",
+            argv=[sys.executable, "-c", "import sys; sys.exit(0)"],
+            base=project.root,
+            inputs=[],
+            outputs=[],
+            numeric_outputs=["out_num/*.json"],
+        )
+    assert not (project.root / "glob_num_fail.sciproof.json").exists()
+
+
 def test_capture_with_output_glob(project):
     script = (
         "import pathlib\n"
