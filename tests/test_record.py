@@ -94,6 +94,47 @@ def test_inputs_and_outputs_are_found_without_declaring_anything(lab):
     assert lab.runs() == 3  # one to look, one to compare, one to capture
 
 
+def test_npy_and_npz_outputs_are_declared_numeric(tmp_path, monkeypatch):
+    pytest.importorskip("numpy")
+    root = tmp_path / "lab"
+    root.mkdir()
+    script = (
+        "import numpy as np, pathlib; pathlib.Path('out').mkdir(exist_ok=True);"
+        "np.save('out/arr.npy', np.array([1.0, 2.0]));"
+        "np.savez('out/data.npz', a=np.array([1.0, 2.0]), b=np.array([3.0]))"
+    )
+    (root / "run.py").write_text(script)
+    monkeypatch.chdir(root)
+    result = record(name="exp", argv=[sys.executable, "run.py"], base=root)
+    assert "out/arr.npy" in result.numeric
+    assert "out/data.npz" in result.numeric
+    assert "out/arr.npy" not in result.exact
+    manifest = load_manifest(result.capture.manifest_path)
+    modes = {o["path"]: o["compare"]["mode"] for o in manifest["outputs"]}
+    assert modes["out/arr.npy"] == "numeric"
+    assert modes["out/data.npz"] == "numeric"
+
+
+def test_varying_npy_output_gets_a_derived_tolerance(tmp_path, monkeypatch):
+    pytest.importorskip("numpy")
+    root = tmp_path / "lab"
+    root.mkdir()
+    counter = tmp_path / "count.txt"
+    monkeypatch.setenv("COUNT_FILE", str(counter))
+    script = (
+        "import numpy as np, os, pathlib; pathlib.Path('out').mkdir(exist_ok=True);"
+        "count_file = os.environ['COUNT_FILE'];"
+        "n = len(open(count_file).read().splitlines()) if os.path.exists(count_file) else 0;"
+        "open(count_file, 'a').write('x\\n');"
+        "np.save('out/arr.npy', np.array([1.0 + n * 1e-7, 2.0]))"
+    )
+    (root / "run.py").write_text(script)
+    monkeypatch.chdir(root)
+    result = record(name="exp", argv=[sys.executable, "run.py"], base=root)
+    assert "out/arr.npy" in result.numeric
+    assert 1e-9 < result.tolerances["out/arr.npy"]["rtol"] < 1e-3
+
+
 def test_the_recorded_evidence_verifies_and_reruns(lab):
     result = lab.go()
     assert verify_manifest(result.capture.manifest_path).status is Status.PASS
