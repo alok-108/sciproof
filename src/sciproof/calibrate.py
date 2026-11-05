@@ -241,16 +241,21 @@ def calibrate(
     *,
     runs: int = 5,
     seeds: list[int] | None = None,
+    threads: list[int] | None = None,
     assume_yes: bool = False,
     confirm: Callable[[str], bool] | None = None,
     timeout: float | None = None,
 ) -> CalibrationReport | None:
     """Run the command of ``manifest_path`` ``runs`` times and report how its outputs vary.
 
-    Returns ``None`` if the confirmation was declined (nothing ran). Raises
-    ``ConfirmationRequired`` without ``assume_yes`` or a ``confirm`` callback.
+    Supports seed sensitivity testing via ``seeds`` and thread scalability / floating-point
+    drift profiling across core counts via ``threads``. Returns ``None`` if the confirmation
+    was declined (nothing ran). Raises ``ConfirmationRequired`` without ``assume_yes`` or
+    a ``confirm`` callback.
     """
-    if seeds is not None:
+    if threads is not None:
+        runs = len(threads)
+    elif seeds is not None:
         runs = len(seeds)
     if not MIN_RUNS <= runs <= MAX_RUNS:
         raise UsageError(f"--runs must be between {MIN_RUNS} and {MAX_RUNS}")
@@ -292,11 +297,18 @@ def calibrate(
 
             for run_idx in range(runs):
                 env = None
+                if seeds or threads:
+                    env = dict(os.environ)
                 if seeds:
                     s = str(seeds[run_idx])
-                    env = dict(os.environ)
                     env["SEED"] = s
                     env["PYTHONHASHSEED"] = s
+                if threads:
+                    t = str(threads[run_idx])
+                    env["OMP_NUM_THREADS"] = t
+                    env["MKL_NUM_THREADS"] = t
+                    env["OPENBLAS_NUM_THREADS"] = t
+                    env["NUMEXPR_NUM_THREADS"] = t
                 result = run_command(argv, base, timeout, env=env)
                 exit_codes.append(result.exit_code)
                 for item in items:

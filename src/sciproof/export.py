@@ -1,10 +1,11 @@
-"""Export a manifest for other tools: an in-toto Statement (v1) or OpenLineage run events.
+"""Export a manifest for other tools: an in-toto Statement (v1), DSSE, or OpenLineage run events.
 
 The Statement lists the output files as subjects with their SHA-256 and describes the run in a
 SciProof-specific predicate. It is **not signed and not an attestation by itself**: in-toto
 Statements are normally wrapped in a signed envelope (DSSE) by the tool that attests them, and
-that step is deliberately left to such tools. The predicate type is SciProof's own; it does not
-claim to be SLSA provenance, because SciProof records an experiment, not a build.
+that step is deliberately left to such tools (e.g. Cosign, Sigstore, or GitHub Attestations).
+The predicate type is SciProof's own; it does not claim to be SLSA provenance, because SciProof
+records an experiment, not a build.
 
 The OpenLineage export describes the run as a pair of run events (START and COMPLETE or FAIL)
 with the inputs and outputs as datasets. It carries lineage (what was read and written, and
@@ -16,6 +17,7 @@ Nothing is executed and only the manifest is read.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import uuid
@@ -30,6 +32,7 @@ from sciproof.manifest import load_manifest
 
 STATEMENT_TYPE = "https://in-toto.io/Statement/v1"
 PREDICATE_TYPE = "https://hayagrivai-labs.github.io/sciproof/docs/export/#experiment-v1"
+DSSE_PAYLOAD_TYPE = "application/vnd.in-toto+json"
 # The schema URL as shown in the OpenLineage specification's own RunEvent example.
 OPENLINEAGE_SCHEMA_URL = "https://openlineage.io/spec/1-0-0/OpenLineage.json#/definitions/RunEvent"
 OPENLINEAGE_PRODUCER = "https://github.com/hayagrivai-labs/sciproof"
@@ -62,6 +65,12 @@ def to_in_toto(manifest_path: Path | str) -> dict[str, Any]:
     manifest = load_manifest(manifest_path)
     environment = manifest["environment"]
     git = manifest.get("git")
+    env_vars = dict(environment.get("env_vars", {}))
+    recorded_env = environment.get("recorded_env")
+    if recorded_env:
+        for k, v in recorded_env.items():
+            if v is not None and k not in env_vars:
+                env_vars[k] = v
     predicate: dict[str, Any] = {
         "experiment": manifest["name"],
         "capturedAt": manifest["created_at"],
@@ -80,7 +89,7 @@ def to_in_toto(manifest_path: Path | str) -> dict[str, Any]:
         "environment": {
             "python": environment["python"],
             "platform": environment["platform"],
-            "variables": environment["env_vars"],
+            "variables": env_vars,
             "packages": [
                 {"name": d["name"], "version": d["version"]} for d in manifest["dependencies"]
             ],
@@ -108,6 +117,17 @@ def to_in_toto(manifest_path: Path | str) -> dict[str, Any]:
         "subject": _subjects(manifest["outputs"], only_present=True),
         "predicateType": PREDICATE_TYPE,
         "predicate": predicate,
+    }
+
+
+def to_dsse(manifest_path: Path | str) -> dict[str, Any]:
+    """The in-toto Statement wrapped in a DSSE envelope ready for signing (e.g. Sigstore)."""
+    statement = to_in_toto(manifest_path)
+    raw = json.dumps(statement, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    return {
+        "payloadType": DSSE_PAYLOAD_TYPE,
+        "payload": base64.b64encode(raw).decode("ascii"),
+        "signatures": [],
     }
 
 
@@ -165,6 +185,10 @@ def format_openlineage(manifest_path: Path | str) -> str:
 
 def format_in_toto(manifest_path: Path | str) -> str:
     return json.dumps(to_in_toto(manifest_path), indent=2, allow_nan=False) + "\n"
+
+
+def format_dsse(manifest_path: Path | str) -> str:
+    return json.dumps(to_dsse(manifest_path), indent=2, allow_nan=False) + "\n"
 
 
 RO_CRATE_CONTEXT = "https://w3id.org/ro/crate/1.1/context"
@@ -235,7 +259,13 @@ def to_ro_crate(manifest_path: Path | str) -> dict[str, Any]:
         tool_entity,
     ]
 
-    env_vars = manifest.get("environment", {}).get("env_vars", {})
+    env_vars = dict(manifest.get("environment", {}).get("env_vars", {}))
+    recorded_vars = manifest.get("environment", {}).get("recorded_env", {})
+    if recorded_vars:
+        for k, v in recorded_vars.items():
+            if v is not None and k not in env_vars:
+                env_vars[k] = v
+
     for key, val in env_vars.items():
         run_action["environment"].append(
             {

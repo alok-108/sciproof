@@ -367,6 +367,10 @@ def validate_manifest(data: Any) -> dict[str, Any]:
         seen.add(path)
         _sha(item.get("sha256"), f"{where}.sha256")
         _size(item, where)
+        if "uri" in item:
+            uri = item["uri"]
+            if not isinstance(uri, str) or not uri.strip() or len(uri) > 1000:
+                raise _fail(f"{where}.uri", "expected string of at most 1000 characters")
         declared.append((path, _check_kind(item, where, minor, present=True)))
 
     execution = _as_dict(_get(manifest, "execution", dict, "manifest"), "execution")
@@ -390,6 +394,10 @@ def validate_manifest(data: Any) -> dict[str, Any]:
             _size(item, where)
         elif item.get("sha256") is not None:
             raise _fail(f"{where}.sha256", "must be null when the output is not present")
+        if "uri" in item:
+            uri = item["uri"]
+            if not isinstance(uri, str) or not uri.strip() or len(uri) > 1000:
+                raise _fail(f"{where}.uri", "expected string of at most 1000 characters")
         compare = _as_dict(_get(item, "compare", dict, where), f"{where}.compare")
         mode = compare.get("mode")
         if mode == "numeric":

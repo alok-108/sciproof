@@ -30,7 +30,7 @@ from sciproof.calibrate import calibrate
 from sciproof.capture import DEFAULT_ATOL, DEFAULT_MAX_LOG_BYTES, DEFAULT_RTOL, capture
 from sciproof.diffmanifests import diff_manifests, format_diff_json
 from sciproof.errors import CommandFailed, ConfirmationRequired, SciProofError, UsageError
-from sciproof.export import format_in_toto, format_openlineage, format_ro_crate
+from sciproof.export import format_dsse, format_in_toto, format_openlineage, format_ro_crate
 from sciproof.html_report import format_report_html
 from sciproof.inspect_manifest import inspect_file
 from sciproof.junit import list_junit, report_junit
@@ -43,12 +43,14 @@ from sciproof.ledger import (
     worst_verdict,
 )
 from sciproof.manifest import load_manifest
+from sciproof.pipeline import verify_pipeline
 from sciproof.policy import POLICY_VERSION, load_policy
 from sciproof.record import record
 from sciproof.sarif import format_report_sarif
 from sciproof.signing import sign_manifest
 from sciproof.suggest import suggest_inputs
 from sciproof.textutil import safe_text
+from sciproof.typst import to_typst
 from sciproof.update import declarations_of, describe_update, update_baseline
 from sciproof.verify import (
     DEFAULT_RERUN_TIMEOUT_SECONDS,
@@ -481,6 +483,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="comma-separated random seeds for Monte Carlo sampling (e.g. 42,43,44)",
     )
 
+    cal.add_argument(
+        "--threads",
+        metavar="THREADS",
+        help="comma-separated thread counts for concurrency drift profiling (e.g. 1,2,4,8)",
+    )
+
     cal.add_argument("--yes", action="store_true", help="do not ask for confirmation")
 
     cal.add_argument("--timeout", type=float, default=None, metavar="SECONDS", help="per run")
@@ -556,12 +564,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
     exp.add_argument(
         "--format",
-        choices=("in-toto", "openlineage", "latex", "ro-crate"),
+        choices=("in-toto", "dsse", "openlineage", "latex", "typst", "ro-crate"),
         default="in-toto",
-        help="in-toto: an unsigned Statement v1 with hashes; openlineage: START and "
-        "COMPLETE/FAIL run events with the inputs and outputs (no hashes, no verdict); "
-        "latex: LaTeX macros (\\newcommand) for values of the outputs (needs --value; only written "
-        "if the integrity verification passes)",
+        help="in-toto: an unsigned Statement v1 with hashes; dsse: in-toto Statement wrapped "
+        "in a DSSE envelope ready for signing (Cosign/Sigstore); openlineage: START and "
+        "COMPLETE/FAIL run events; latex: LaTeX macros; typst: Typst variables (#let); "
+        "ro-crate: RO-Crate metadata JSON-LD",
     )
 
     exp.add_argument(
@@ -570,13 +578,27 @@ def _build_parser() -> argparse.ArgumentParser:
         action="append",
         default=[],
         metavar=("NAME", "OUTPUT", "LOCATION"),
-        help="with --format latex: a macro NAME for the value at LOCATION of the declared "
-        "OUTPUT, for example --value accuracy out/metrics.json '$.accuracy'; repeatable",
+        help="with --format latex or --format typst: a variable/macro NAME for the value at "
+        "LOCATION of the declared OUTPUT, e.g. --value accuracy out/metrics.json '$.accuracy'; "
+        "repeatable",
     )
 
     exp.add_argument(
         "-o", "--output", type=Path, metavar="FILE", help="write here (default: stdout)"
     )
+
+    pip = sub.add_parser(
+        "pipeline",
+        help="verify multi-step pipeline DAG and chain of custody",
+        description=(
+            "Verify all steps of a multi-stage scientific pipeline declared in a TOML file. "
+            "Checks integrity of each step's manifest and verifies chain-of-custody between steps."
+        ),
+    )
+
+    pip.add_argument("action", choices=("verify",), help="pipeline action (verify)")
+
+    pip.add_argument("pipeline_file", type=Path, help="path to pipeline TOML configuration")
 
     pol = sub.add_parser(
         "check-policy",
@@ -810,13 +832,19 @@ def _write_user_file(path: Path, text: str) -> None:
 
 def _run_export(args: argparse.Namespace) -> int:
 
-    if args.value and args.format != "latex":
-        raise UsageError("--value is only used with --format latex")
+    if args.value and args.format not in ("latex", "typst"):
+        raise UsageError("--value is only used with --format latex or --format typst")
 
     if args.format == "latex":
         values = [(name, out, loc) for name, out, loc in args.value] if args.value else None
-
         text = to_latex(args.manifest, values)
+
+    elif args.format == "typst":
+        values = [(name, out, loc) for name, out, loc in args.value] if args.value else None
+        text = to_typst(args.manifest, values)
+
+    elif args.format == "dsse":
+        text = format_dsse(args.manifest)
 
     elif args.format == "ro-crate":
         text = format_ro_crate(args.manifest)
@@ -829,14 +857,19 @@ def _run_export(args: argparse.Namespace) -> int:
 
     if args.output is None:
         print(text, end="")
-
         return EXIT_OK
 
     _write_user_file(args.output, text)
-
     print(f"Wrote {args.output}")
-
     return EXIT_OK
+
+
+def _run_pipeline(args: argparse.Namespace) -> int:
+    report = verify_pipeline(args.pipeline_file)
+    print(report.to_text())
+    return {Status.PASS: EXIT_OK, Status.FAIL: EXIT_FAIL, Status.INCONCLUSIVE: EXIT_INCONCLUSIVE}[
+        report.status
+    ]
 
 
 def _run_sign(args: argparse.Namespace) -> int:
@@ -1007,10 +1040,24 @@ def _run_calibrate(args: argparse.Namespace) -> int:
         if len(seeds) < 2:
             raise UsageError("--seeds must specify at least 2 seeds")
 
+    threads = None
+    if getattr(args, "threads", None):
+        try:
+            threads = [int(t.strip()) for t in args.threads.split(",") if t.strip()]
+        except ValueError as exc:
+            raise UsageError(
+                "--threads must be a comma-separated list of integers, e.g. 1,2,4,8"
+            ) from exc
+        if len(threads) < 2:
+            raise UsageError("--threads must specify at least 2 thread counts")
+        if any(t < 1 for t in threads):
+            raise UsageError("thread counts must be positive integers")
+
     report = calibrate(
         args.manifest,
         runs=args.runs,
         seeds=seeds,
+        threads=threads,
         assume_yes=args.yes,
         confirm=_confirm if not args.yes else None,
         timeout=args.timeout,
@@ -1212,6 +1259,9 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command_name == "suggest-inputs":
             return _run_suggest(args)
+
+        if args.command_name == "pipeline":
+            return _run_pipeline(args)
 
         print(inspect_file(args.manifest))
 

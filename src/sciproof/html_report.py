@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import html
-from typing import TYPE_CHECKING
+import json
+from typing import TYPE_CHECKING, Any
 
 from sciproof import __version__
 from sciproof.textutil import safe_text
@@ -30,6 +31,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       --fail-bg: rgba(239, 68, 68, 0.15);
       --inc: #f59e0b;
       --inc-bg: rgba(245, 158, 11, 0.15);
+      --accent: #3b82f6;
     }}
     @media (prefers-color-scheme: light) {{
       :root {{
@@ -44,6 +46,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         --fail-bg: #fef2f2;
         --inc: #d97706;
         --inc-bg: #fffbeb;
+        --accent: #2563eb;
       }}
     }}
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
@@ -110,15 +113,39 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     tr:last-child td {{ border-bottom: none; }}
     .subject {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 500; }}
     .message {{ color: var(--text-muted); }}
+    .scope-box {{
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      margin-top: 1rem;
+      font-size: 0.875rem;
+    }}
     .gauge {{
-      width: 120px;
+      width: 100px;
       height: 8px;
       background: var(--border);
       border-radius: 4px;
       overflow: hidden;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 0.5rem;
     }}
-    .gauge-fill {{ height: 100%; background: var(--pass); }}
+    .gauge-fill {{ height: 100%; background: var(--pass); transition: width 0.2s; }}
     .gauge-fill.exceeded {{ background: var(--fail); }}
+    .slider-group {{
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin: 0.75rem 0;
+      font-size: 0.875rem;
+    }}
+    .slider-group label {{ min-width: 120px; color: var(--text-muted); }}
+    .slider-group input[type="range"] {{ flex: 1; accent-color: var(--accent); }}
+    .slider-val {{ font-family: ui-monospace, monospace; min-width: 70px; font-weight: 600; }}
+    ul.check-list {{ list-style-type: none; padding-left: 0; }}
+    ul.check-list li {{ padding: 0.35rem 0; font-size: 0.875rem; color: var(--text-muted); }}
+    ul.check-list li::before {{ content: "• "; color: var(--text-muted); }}
     footer {{
       margin-top: 3rem;
       text-align: center;
@@ -137,6 +164,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="card">
       <h2>Experiment Verification: {name}</h2>
       <p style="color: var(--text-muted); font-size: 0.875rem;">{reason}</p>
+      <div class="scope-box">{scope_note}</div>
       <div class="meta-grid">
         <div class="meta-item">
           <div class="meta-label">Total Checks</div>
@@ -173,7 +201,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       </table>
     </div>
 
+    {numeric_tables}
+
     {warnings_section}
+
+    <div class="card">
+      <h2>Not Checked by Design</h2>
+      <ul class="check-list">
+        {not_checked_items}
+      </ul>
+    </div>
 
     <footer>
       Verified by
@@ -181,9 +218,129 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       &bull; Zero-Dependency Scientific Reproducibility
     </footer>
   </div>
+  {script_block}
 </body>
 </html>
 """
+
+
+def _render_numeric_section(report: Report) -> tuple[str, str]:
+    """Render interactive tolerance tables and slider controls for numeric checks."""
+    tables: list[str] = []
+    numeric_datasets: list[dict[str, Any]] = []
+
+    for index, check in enumerate(report.checks):
+        evidence = check.evidence or {}
+        details = evidence.get("difference_details")
+        if evidence.get("kind") != "rerun_output_numeric" or not details:
+            continue
+
+        path = html.escape(str(evidence.get("path", "numeric output")))
+        rtol = float(evidence.get("rtol", 1e-9))
+        atol = float(evidence.get("atol", 1e-9))
+
+        rows_html: list[str] = []
+        clean_details = []
+        for d in details:
+            if d.get("kind") == "summary":
+                continue
+            loc = html.escape(str(d.get("location") or "-"))
+            rec = d.get("recorded")
+            fnd = d.get("found")
+            adiff = float(d.get("abs_diff", 0.0) or 0.0)
+            rdiff = float(d.get("rel_diff", 0.0) or 0.0)
+            allowed = float(d.get("allowed", 0.0) or 0.0)
+            ratio = (adiff / allowed * 100) if allowed > 0 else 100.0
+            gauge_pct = min(100.0, max(0.0, ratio))
+            is_exceeded = adiff > allowed
+
+            clean_details.append(
+                {
+                    "loc": loc,
+                    "recorded": rec,
+                    "found": fnd,
+                    "abs_diff": adiff,
+                    "rel_diff": rdiff,
+                }
+            )
+
+            gauge_cls = "gauge-fill exceeded" if is_exceeded else "gauge-fill"
+            rows_html.append(
+                f'<tr id="row-{index}-{loc}">'
+                f'<td class="subject">{loc}</td>'
+                f"<td>{rec}</td><td>{fnd}</td>"
+                f"<td>{adiff:.4g}</td><td>{rdiff:.4g}</td>"
+                f'<td><div class="gauge"><div class="{gauge_cls}" '
+                f'style="width: {gauge_pct:.1f}%"></div></div>'
+                f'<span class="meta-value" style="font-size:0.75rem">{allowed:.4g}</span></td>'
+                f"</tr>"
+            )
+
+        numeric_datasets.append(
+            {
+                "index": index,
+                "path": path,
+                "rtol": rtol,
+                "atol": atol,
+                "items": clean_details,
+            }
+        )
+
+        tables.append(
+            f'<div class="card" id="numeric-card-{index}">'
+            f"<h2>Numeric Comparison: {path}</h2>"
+            f'<div class="slider-group">'
+            f"<label>Tolerance rtol (10<sup>x</sup>):</label>"
+            f'<input type="range" id="rtol-slider-{index}" min="-12" max="0" step="0.5" '
+            f'value="-6" oninput="updateTolerance({index})">'
+            f'<span class="slider-val" id="rtol-val-{index}">1e-6</span>'
+            f"</div>"
+            f'<div class="slider-group">'
+            f"<label>Tolerance atol (10<sup>x</sup>):</label>"
+            f'<input type="range" id="atol-slider-{index}" min="-12" max="0" step="0.5" '
+            f'value="-6" oninput="updateTolerance({index})">'
+            f'<span class="slider-val" id="atol-val-{index}">1e-6</span>'
+            f"</div>"
+            f"<table><thead><tr>"
+            f"<th>Location</th><th>Recorded</th><th>Found</th><th>Abs. Diff</th>"
+            f"<th>Rel. Diff</th><th>Tolerance Meter</th>"
+            f"</tr></thead><tbody>" + "\n".join(rows_html) + "</tbody></table></div>"
+        )
+
+    if not numeric_datasets:
+        return "", ""
+
+    script = f"""<script>
+    const datasets = {json.dumps(numeric_datasets)};
+    function updateTolerance(idx) {{
+      const ds = datasets.find(d => d.index === idx);
+      if (!ds) return;
+      const rtolExp = parseFloat(document.getElementById(`rtol-slider-${{idx}}`).value);
+      const atolExp = parseFloat(document.getElementById(`atol-slider-${{idx}}`).value);
+      const rtol = Math.pow(10, rtolExp);
+      const atol = Math.pow(10, atolExp);
+      document.getElementById(`rtol-val-${{idx}}`).innerText = rtol.toExponential(1);
+      document.getElementById(`atol-val-${{idx}}`).innerText = atol.toExponential(1);
+
+      ds.items.forEach(item => {{
+        const row = document.getElementById(`row-${{idx}}-${{item.loc}}`);
+        if (!row) return;
+        const maxVal = Math.max(Math.abs(item.recorded || 0), Math.abs(item.found || 0));
+        const allowed = Math.max(rtol * maxVal, atol);
+        const ratio = allowed > 0 ? (item.abs_diff / allowed) * 100 : 100;
+        const pct = Math.min(100, Math.max(0, ratio));
+        const exceeded = item.abs_diff > allowed;
+        const gauge = row.querySelector('.gauge-fill');
+        if (gauge) {{
+          gauge.style.width = pct.toFixed(1) + '%';
+          gauge.className = 'gauge-fill' + (exceeded ? ' exceeded' : '');
+        }}
+        const valSpan = row.querySelector('.meta-value');
+        if (valSpan) valSpan.innerText = allowed.toExponential(2);
+      }});
+    }}
+  </script>"""
+    return "\n".join(tables), script
 
 
 def report_html(report: Report) -> str:
@@ -196,6 +353,17 @@ def report_html(report: Report) -> str:
     passed_count = sum(1 for c in report.checks if c.status.value == "PASS")
     failed_count = sum(1 for c in report.checks if c.status.value == "FAIL")
     inc_count = sum(1 for c in report.checks if c.status.value == "INCONCLUSIVE")
+
+    if report.rerun_executed:
+        scope_note = (
+            "<strong>Rerun scope:</strong> The command recorded in the manifest was "
+            "re-executed with the current environment."
+        )
+    else:
+        scope_note = (
+            "<strong>Integrity scope:</strong> The recorded command was <em>NOT</em> executed. "
+            "Only hash and structural integrity of declared files were verified."
+        )
 
     rows = []
     for check in report.checks:
@@ -219,18 +387,28 @@ def report_html(report: Report) -> str:
             f"<h2>Warnings</h2><ul>{warn_items}</ul></div>"
         )
 
+    not_checked_items = "".join(
+        f"<li>{html.escape(safe_text(item, 500))}</li>" for item in report.not_checked
+    )
+
+    numeric_tables, script_block = _render_numeric_section(report)
+
     return HTML_TEMPLATE.format(
         version=__version__,
         name=html.escape(safe_text(report.name, 100)),
         status=status_str,
         status_class=status_class,
         reason=html.escape(safe_text(report.reason, 300)),
+        scope_note=scope_note,
         total_checks=len(report.checks),
         passed_count=passed_count,
         failed_count=failed_count,
         inc_count=inc_count,
         rows="\n".join(rows),
+        numeric_tables=numeric_tables,
         warnings_section=warnings_section,
+        not_checked_items=not_checked_items,
+        script_block=script_block,
     )
 
 

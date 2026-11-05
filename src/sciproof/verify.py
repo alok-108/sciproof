@@ -357,10 +357,11 @@ def _check_inputs(base: Path, manifest: dict[str, Any], report: Report) -> bool:
             elif not state.exists:
                 intact = False
                 what = "directory" if state.directory else "file"
+                uri_note = f" from {item['uri']}" if item.get("uri") else ""
                 report.add(
                     Status.INCONCLUSIVE,
                     subject,
-                    f"not available, so nothing can be said about it (restore the {what} "
+                    f"not available, so nothing can be said about it (restore the {what}{uri_note} "
                     "to verify)",
                     evidence,
                 )

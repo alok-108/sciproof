@@ -104,11 +104,74 @@ def _resolve_batch_tool(name: str, env: Mapping[str, str] | None) -> str | None:
     return None
 
 
+def build_container_command(
+    argv: list[str],
+    cwd: Path,
+    container: str,
+    engine: str = "auto",
+) -> list[str]:
+    """Wrap an argument vector to run inside a container (Docker, Podman, Apptainer/Singularity).
+
+    The host working directory ``cwd`` is mounted to ``/workspace``, which becomes the container
+    working directory.
+    """
+    image = container.strip()
+    detected_engine = engine
+
+    if image.startswith("docker://"):
+        detected_engine = "docker" if engine == "auto" else engine
+        image = image.removeprefix("docker://")
+    elif image.startswith("podman://"):
+        detected_engine = "podman" if engine == "auto" else engine
+        image = image.removeprefix("podman://")
+    elif image.startswith("apptainer://"):
+        detected_engine = "apptainer" if engine == "auto" else engine
+        image = image.removeprefix("apptainer://")
+    elif image.startswith("singularity://"):
+        detected_engine = "singularity" if engine == "auto" else engine
+        image = image.removeprefix("singularity://")
+    elif image.endswith(".sif") or Path(image).suffix == ".sif":
+        if detected_engine == "auto":
+            detected_engine = "apptainer"
+    elif detected_engine == "auto":
+        detected_engine = "docker"
+
+    mount_path = str(cwd.resolve()).replace("\\", "/")
+
+    if detected_engine in ("docker", "podman"):
+        return [
+            detected_engine,
+            "run",
+            "--rm",
+            "-v",
+            f"{mount_path}:/workspace",
+            "-w",
+            "/workspace",
+            image,
+            *argv,
+        ]
+    if detected_engine in ("apptainer", "singularity"):
+        return [
+            detected_engine,
+            "exec",
+            "--bind",
+            f"{mount_path}:/workspace",
+            "--pwd",
+            "/workspace",
+            image,
+            *argv,
+        ]
+
+    raise CommandNotRunnable(f"unsupported container engine: {detected_engine!r}")
+
+
 def run_command(
     argv: list[str],
     cwd: Path,
     timeout: float | None,
     env: Mapping[str, str] | None = None,
+    container: str | None = None,
+    container_engine: str = "auto",
 ) -> ExecResult:
     """Run ``argv`` (never through a shell) in ``cwd`` with the current user's permissions.
 
@@ -132,10 +195,13 @@ def run_command(
         options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
     else:
         options["start_new_session"] = True
-    launch = list(argv)
-    batch_tool = _resolve_batch_tool(launch[0], env)
-    if batch_tool is not None:
-        launch[0] = batch_tool
+    if container:
+        launch = build_container_command(argv, cwd, container, container_engine)
+    else:
+        launch = list(argv)
+        batch_tool = _resolve_batch_tool(launch[0], env)
+        if batch_tool is not None:
+            launch[0] = batch_tool
     try:
         process = subprocess.Popen(  # noqa: S603
             launch,
