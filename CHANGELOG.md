@@ -6,6 +6,18 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-05
+
+* **Typst Scientific Publishing Module:** Native variable export for the modern Typst publishing ecosystem (`sciproof export <manifest> --format typst`), with support for IEEE 754 floats (`calc.nan`, `calc.inf`), booleans, strings, and auto-named variables.
+* **Multi-Step Pipeline DAG Engine:** Validate multi-stage scientific pipelines (`sciproof pipeline verify <pipeline.toml>`) with strict cross-stage cryptographic chain-of-custody checks ensuring intermediate outputs match downstream inputs without tampering.
+* **In-toto DSSE Envelope Export:** Wrap manifests into standards-compliant in-toto v1 Statement envelopes (`application/vnd.in-toto+json`) ready for keyless signing via Sigstore, Cosign, or GitHub Attestations (`sciproof export <manifest> --format dsse`).
+* **Hermetic Container & Sandbox Execution:** Isolate experiment execution inside Docker, Podman, or Singularity/Apptainer (`.sif`) containers (`build_container_command`) with `/workspace` bind-mounts to eliminate cross-platform glibc/CUDA library drift.
+* **Remote Content-Addressed Artifacts:** Declare external dataset and checkpoint references with URI resolvers (`uri: hf://...`, `zenodo:...`, `s3://...`) and verified SHA-256 digests in manifest inputs and outputs.
+* **Concurrency Floating-Point Drift Profiler:** Detect multi-threaded numerical noise and reduction variance across core counts (`sciproof calibrate --threads 1,2,4,8`) configuring OpenMP, MKL, OpenBLAS, and NumExpr runtime threads.
+* **Interactive HTML Report & Tolerance Inspector:** Single-file self-contained HTML verification reports with dynamic tolerance range sliders (`rtol` and `atol`) and visual gauge meters for exploring floating-point differences.
+* **Jupyter / IPython `%sciproof` Cell Magic:** Inline experiment tracking and evidence capture within computational notebooks via `%load_ext sciproof.jupyter` and `%%sciproof`.
+
+
 ## [0.5.0] - 2026-10-30
 
 * **RO-Crate 1.3 / Process Run Crate 0.6 Exporter:** Native export to standards-compliant JSON-LD (`sciproof export --format ro-crate`).
