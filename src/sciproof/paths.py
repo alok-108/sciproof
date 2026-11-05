@@ -7,6 +7,7 @@ directory that contains the manifest (the *base directory*).
 
 from __future__ import annotations
 
+import stat
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from sciproof.errors import UnsafePathError
@@ -97,7 +98,17 @@ def has_glob_magic(pattern: str | Path) -> bool:
 
 
 def expand_glob(base: Path, pattern: str) -> list[str]:
-    """Expand a glob pattern safely below base directory, returning relative POSIX paths."""
+    """Expand a glob pattern safely below base directory, returning relative POSIX paths.
+
+    Only regular files are returned. Directories matched by a recursive
+    pattern are dropped, never hashed as files. A symbolic link is returned
+    by its own path, not by its resolved target path, provided its target
+    is a regular file inside ``base``; links to directories are not
+    followed into the directory, and links whose target is outside ``base``
+    or missing are dropped. Dropping here is deliberate: a pattern whose
+    matches are all dropped expands to nothing, which the caller (capture)
+    must treat as an unmatched glob, not as a silently empty declaration.
+    """
     base_resolved = base.resolve()
     norm = pattern.replace("\\", "/")
     if norm.startswith("/"):
@@ -108,10 +119,30 @@ def expand_glob(base: Path, pattern: str) -> list[str]:
     matches: list[str] = []
     for match in sorted(base_resolved.glob(norm)):
         try:
-            cand = match.resolve()
-            if cand.is_relative_to(base_resolved) and cand != base_resolved:
-                rel = cand.relative_to(base_resolved).as_posix()
-                validate_relative_path(rel)
+            # Do not follow a symlinked directory in the middle of a match:
+            # a pattern traversing linkdir/ must not descend into it.
+            rel_parts = match.relative_to(base_resolved).parts
+            if any(
+                (base_resolved.joinpath(*rel_parts[:i])).is_symlink()
+                for i in range(1, len(rel_parts))
+            ):
+                continue
+            mode = match.lstat().st_mode
+            if stat.S_ISLNK(mode):
+                # Record the link itself, not its target: resolve only to
+                # check that the target is a regular file inside base.
+                target = match.resolve()
+                if not target.is_relative_to(base_resolved) or not target.is_file():
+                    continue
+            elif stat.S_ISREG(mode):
+                # A plain regular file.
+                pass
+            else:
+                # Directories, devices, sockets and other special files.
+                continue
+            rel = match.relative_to(base_resolved).as_posix()
+            validate_relative_path(rel)
+            if rel not in matches:
                 matches.append(rel)
         except (UnsafePathError, OSError):
             continue
