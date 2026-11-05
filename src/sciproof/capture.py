@@ -341,10 +341,22 @@ def capture(
                 "inputs must be read-only. No evidence was written."
             )
 
+    # An output glob that matches nothing must not be silently dropped:
+    # unlike an explicit output, there is no file to record as present=False
+    # when the command fails, so a manifest written here could claim a run
+    # with no declared outputs at all. Fail like an unmatched input glob
+    # instead (a CaptureError, i.e. CLI exit 3, and no evidence is written),
+    # even when the command itself failed or --allow-nonzero was given.
     for pat in exact_glob_patterns:
-        exact_paths.extend(expand_glob(base, pat))
+        expanded = expand_glob(base, pat)
+        if not expanded:
+            raise CaptureError(f"no files matched output glob pattern: {pat!r}")
+        exact_paths.extend(expanded)
     for pat in numeric_glob_patterns:
-        numeric_paths.extend(expand_glob(base, pat))
+        expanded = expand_glob(base, pat)
+        if not expanded:
+            raise CaptureError(f"no files matched output-numeric glob pattern: {pat!r}")
+        numeric_paths.extend(expanded)
     exact_paths = list(dict.fromkeys(exact_paths))
     numeric_paths = list(dict.fromkeys(numeric_paths))
     _unique(exact_paths + numeric_paths, "--output/--output-numeric")
