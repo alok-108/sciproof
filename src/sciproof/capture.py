@@ -36,6 +36,7 @@ from sciproof.manifest import (
 from sciproof.numeric import NumericFormatError, load_numeric
 from sciproof.paths import expand_glob, has_glob_magic, to_manifest_path
 from sciproof.runner import (
+    MAX_WAIT_SECONDS,
     CommandInterrupted,
     CommandNotRunnable,
     CommandTimeout,
@@ -206,8 +207,11 @@ def capture(
         for value in settings.values():
             if not (math.isfinite(value) and value >= 0):
                 raise CaptureError("rtol and atol must be finite numbers that are not negative")
-    if timeout is not None and not (math.isfinite(timeout) and timeout > 0):
-        raise CaptureError("timeout must be a positive number of seconds")
+    if timeout is not None and not (math.isfinite(timeout) and 0 < timeout <= MAX_WAIT_SECONDS):
+        raise CaptureError(
+            "timeout must be a positive number of seconds and at most "
+            f"{MAX_WAIT_SECONDS:.0f} seconds"
+        )
     if max_log_bytes < 0:
         raise CaptureError("max-log-bytes must not be negative")
     base = Path(base).resolve()

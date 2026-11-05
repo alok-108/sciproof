@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import math
 import os
 import signal
 import subprocess  # noqa: S404
@@ -38,6 +39,12 @@ class ExecResult:
 
 
 _DRAIN_SECONDS = 5.0
+
+# Waiting uses a C int of milliseconds on the selector path, so a timeout
+# above this cannot be represented: subprocess raises OverflowError instead
+# of waiting. About 24.8 days is far beyond any realistic capture, so reject
+# it up front rather than starting a command that can then be orphaned.
+MAX_WAIT_SECONDS = (2**31 - 1) / 1000
 
 
 def _kill_process_tree(process: subprocess.Popen[bytes]) -> None:
@@ -112,6 +119,13 @@ def run_command(
     runs in its own process group (session on POSIX), so a timeout or Ctrl+C stops everything it
     started and not only the first process.
     """
+    if timeout is not None and (
+        not math.isfinite(timeout) or timeout <= 0 or timeout > MAX_WAIT_SECONDS
+    ):
+        raise CommandNotRunnable(
+            f"timeout must be a positive number of seconds and at most "
+            f"{MAX_WAIT_SECONDS:.0f} seconds"
+        )
     started = time.monotonic()
     options: dict[str, Any] = {}
     if sys.platform == "win32":
@@ -142,6 +156,11 @@ def run_command(
     except KeyboardInterrupt as exc:
         _stop(process)
         raise CommandInterrupted("interrupted by the user") from exc
+    except (OverflowError, OSError, ValueError) as exc:
+        # Never leave the command (and its children) running behind a
+        # traceback: kill the tree first, then report a clean SciProofError.
+        _stop(process)
+        raise SciProofError(f"could not wait for command: {exc}") from exc
     return ExecResult(
         exit_code=process.returncode,
         stdout=stdout,
