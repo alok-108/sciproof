@@ -232,6 +232,7 @@ def test_log_output_is_truncated_but_fully_hashed(project):
         ({"timeout": 0}, "timeout"),
         ({"timeout": -3}, "timeout"),
         ({"timeout": float("nan")}, "timeout"),
+        ({"timeout": 10**12}, "at most"),
         ({"max_log_bytes": -5}, "max-log-bytes"),
     ],
 )
