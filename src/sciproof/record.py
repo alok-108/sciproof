@@ -75,7 +75,7 @@ MAX_SCANNED_FILES = 50_000
 MAX_DECLARED = 500
 DEFAULT_RTOL = 1e-9
 SAFETY_FACTOR = 10
-NUMERIC_SUFFIXES = (".json", ".csv", ".tsv")
+NUMERIC_SUFFIXES = (".json", ".csv", ".tsv", ".npy", ".npz")
 STDERR_TAIL_LINES = 10  # of a failed run, shown in the error
 STDERR_TAIL_CHARACTERS = 2000
 
@@ -321,13 +321,27 @@ def record(
             )
             continue
         parsed = first_leaves[relative]
+        if parsed is None and relative.lower().endswith((".npy", ".npz")):
+            try:
+                import numpy  # noqa: F401
+            except ImportError:
+                excluded.append(
+                    (
+                        relative,
+                        "comparing this file needs NumPy: pip install 'sciproof[numpy]'",
+                    )
+                )
+                continue
         if fast or second_digest.get(relative) == first_digest[relative]:
             (numeric if parsed is not None else exact).append(relative)
         elif relative not in second_digest:
             excluded.append((relative, "not written by the second run"))
         elif parsed is None or second_leaves.get(relative) is None:
             excluded.append(
-                (relative, "differs between two identical runs and is not JSON/CSV/TSV")
+                (
+                    relative,
+                    "differs between two identical runs and is not JSON/CSV/TSV/NPY/NPZ",
+                )
             )
         else:
             _, max_rel, _, problem = _spread([parsed, second_leaves[relative] or []], 0.0, 0.0)

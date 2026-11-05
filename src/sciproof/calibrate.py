@@ -157,8 +157,34 @@ def _spread(samples: list[list[Leaf]], rtol: float, atol: float) -> tuple[float,
 
     ``outside`` counts the locations whose spread is larger than the tolerance rule allows;
     ``first_problem`` describes a difference that is not a number spread (a text, a missing key).
+    Array leaves (``.npy`` / ``.npz`` data) are expanded element-wise first:
+    comparing two arrays directly would raise an ambiguous-truth error, and
+    their spread is the largest element-wise spread.
     """
-    tables = [dict(sample) for sample in samples]
+
+    def _expand(sample: list[Leaf]) -> list[Leaf]:
+        expanded: list[Leaf] = []
+        for location, value in sample:
+            if hasattr(value, "shape") and hasattr(value, "dtype"):
+                try:
+                    import numpy as np
+                except ImportError:
+                    expanded.append((location, value))
+                    continue
+                array = np.asarray(value)
+                for index in np.ndindex(array.shape):
+                    element = array[index]
+                    expanded.append(
+                        (
+                            f"{location}{list(index)}",
+                            element.tolist() if hasattr(element, "tolist") else element,
+                        )
+                    )
+            else:
+                expanded.append((location, value))
+        return expanded
+
+    tables = [dict(_expand(sample)) for sample in samples]
     max_abs = max_rel = 0.0
     outside = 0
     problem = ""
