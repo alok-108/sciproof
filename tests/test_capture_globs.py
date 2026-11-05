@@ -11,6 +11,15 @@ from sciproof.errors import UnsafePathError
 from sciproof.paths import expand_glob, has_glob_magic
 
 
+def _require_symlinks(tmp_path) -> None:
+    try:
+        probe = tmp_path / "probe_symlink"
+        probe.symlink_to(tmp_path)
+        probe.unlink()
+    except (OSError, NotImplementedError):
+        pytest.skip("symbolic links are not available here")
+
+
 def test_glob_magic_detection():
     assert has_glob_magic("data/*.csv")
     assert has_glob_magic("data/split_?.json")
@@ -37,6 +46,7 @@ def test_expand_glob_drops_directories(tmp_path):
 
 
 def test_expand_glob_records_file_symlink_by_its_own_path(tmp_path):
+    _require_symlinks(tmp_path)
     (tmp_path / "real.txt").write_text("real")
     (tmp_path / "link.txt").symlink_to("real.txt")
 
@@ -44,6 +54,7 @@ def test_expand_glob_records_file_symlink_by_its_own_path(tmp_path):
 
 
 def test_expand_glob_does_not_follow_directory_symlinks(tmp_path):
+    _require_symlinks(tmp_path)
     (tmp_path / "sub").mkdir()
     (tmp_path / "sub" / "inner.txt").write_text("inner")
     (tmp_path / "linkdir").symlink_to("sub", target_is_directory=True)
@@ -53,6 +64,7 @@ def test_expand_glob_does_not_follow_directory_symlinks(tmp_path):
 
 
 def test_expand_glob_drops_outside_and_broken_symlinks(tmp_path):
+    _require_symlinks(tmp_path)
     outside = tmp_path.parent / "outside.txt"
     outside.write_text("outside")
     (tmp_path / "link_out.txt").symlink_to(outside)
