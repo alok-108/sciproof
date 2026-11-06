@@ -68,6 +68,36 @@ sciproof calibrate baseline.sciproof.json --runs 5 --yes -q
 # RESULT: STABLE
 ```
 
+### `pipeline`
+
+Verify end-to-end multi-step workflow pipelines declared in a TOML file:
+
+```bash
+sciproof pipeline verify pipeline.toml
+```
+
+Verifies the integrity of every individual step's manifest and enforces cross-step cryptographic chain-of-custody (verifying that intermediate output SHA-256 hashes match downstream input SHA-256 hashes).
+
+### `export`
+
+Export a manifest to other metadata specifications or typesetting variables:
+
+```bash
+sciproof export baseline.sciproof.json --format in-toto        # in-toto v1 Statement
+sciproof export baseline.sciproof.json --format dsse           # in-toto wrapped in DSSE envelope
+sciproof export baseline.sciproof.json --format ro-crate       # RO-Crate 1.1 Process Run Crate JSON-LD
+sciproof export baseline.sciproof.json --format openlineage    # OpenLineage run events
+sciproof export baseline.sciproof.json --format typst -o val.typ  # Typst #let variables
+sciproof export baseline.sciproof.json --format latex -o num.tex  # LaTeX \newcommand macros
+```
+
+
+You can also profile concurrency drift across core counts:
+
+```bash
+sciproof calibrate baseline.sciproof.json --threads 1,2,4,8 --yes
+```
+
 ### `diff`
 
 Compare two evidence manifests:

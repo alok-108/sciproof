@@ -34,7 +34,7 @@ inputs:
       installed it.
     default: "true"
   version:
-    description: "SciProof version to install, for example 0.5.0 (this action needs 0.3.0 or later). Empty means the latest release."
+    description: "SciProof version to install, for example 0.6.0 (this action needs 0.3.0 or later). Empty means the latest release."
     default: ""
   python-version:
     description: "Python version to set up when install is true."

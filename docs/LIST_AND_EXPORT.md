@@ -74,6 +74,35 @@ export or the manifest for that.
 An export to RO-Crate (Process Run Crate) is not implemented; see the
 [design note](DESIGN_RO_CRATE.md) for the open questions.
 
+## `--format dsse`: in-toto Statement in DSSE envelope
+
+Wrap the manifest in a Dead Simple Signing Envelope (DSSE v1.0) with payload type `application/vnd.in-toto+json`:
+
+```bash
+sciproof export baseline.sciproof.json --format dsse -o baseline.dsse.json
+```
+
+This output is ready for direct keyless signing using Sigstore / Cosign (`cosign sign-blob-attestation`) or GitHub Attestations.
+
+## `--format typst`: numbers for a Typst paper
+
+Typst is the modern alternative to LaTeX for scientific papers. With `--format typst`, verified experiment outputs are exported as native `#let` variables:
+
+```bash
+sciproof export baseline.sciproof.json --format typst -o evidence.typ \
+  --value accuracy out/metrics.json '$.accuracy' \
+  --value loss     out/metrics.json '$.loss'
+```
+
+Generated `evidence.typ`:
+```typst
+// SciProof 0.6.0: values of baseline.sciproof.json (integrity verification: PASS)
+#let accuracy = 0.93
+#let loss = 0.0025
+```
+
+In the Typst paper: `#import "evidence.typ": accuracy, loss`. Special float values (`calc.nan`, `calc.inf`, `-calc.inf`) are formatted correctly for Typst's math library.
+
 ## `--format latex`: numbers for a paper
 
 A number typed into a paper by hand can drift away from the experiment that produced it. With
@@ -114,5 +143,8 @@ import sciproof
 for entry in sciproof.list_manifests("results", recursive=True, check=True):
     print(entry.file, entry.verdict)
 statement = sciproof.export_in_toto("baseline.sciproof.json")  # a dict
+dsse_env = sciproof.export_dsse("baseline.sciproof.json")  # a dict
+ro_crate = sciproof.export_ro_crate("baseline.sciproof.json")  # a dict
 events = sciproof.export_openlineage("baseline.sciproof.json")  # a list of two dicts
+typst_vars = sciproof.export_typst("baseline.sciproof.json")  # typst text
 ```

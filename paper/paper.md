@@ -94,14 +94,18 @@ sciproof verify benchmark.sciproof.json --rerun --yes
 
 The command verifies cryptographic file digests, re-executes the experiment inside an isolated sandbox, compares newly produced outputs against recorded baselines within calibrated tolerances, and prints an unambiguous `PASS` or `FAIL` verdict.
 
-### 4. Direct LaTeX Export
-To prevent manuscript numbers from drifting when experiments are updated, `SciProof` exports verified manifest metrics directly into LaTeX definitions:
+### 4. Direct Typst & LaTeX Manuscript Exports
+To prevent manuscript numbers from drifting when experiments are updated, `SciProof` exports verified manifest metrics directly into Typst (`#let accuracy = 94.2`) or LaTeX definitions:
 
 ```bash
+sciproof export benchmark.sciproof.json --format typst > evidence.typ
 sciproof export benchmark.sciproof.json --format latex > numbers.tex
 ```
 
-This allows authors to directly include `\newcommand{\accuracy}{94.2}` within LaTeX source documents, eliminating manual transcription errors.
+This allows authors to directly `#import "evidence.typ": accuracy` or include `\newcommand{\accuracy}{94.2}` within publication sources, eliminating manual transcription errors.
+
+### 5. Multi-Stage Workflow DAG Verification
+Scientific workflows frequently involve multi-stage computational pipelines (e.g., data preprocessing, feature engineering, model training, evaluation). `SciProof` supports linking manifests into a Directed Acyclic Graph (`pipeline.toml` via `sciproof pipeline verify`), enforcing end-to-end cryptographic chain-of-custody to guarantee downstream stages consume authentic, unmodified upstream outputs.
 
 # Research Impact Statement
 

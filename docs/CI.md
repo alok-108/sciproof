@@ -99,7 +99,7 @@ your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/hayagrivai-labs/sciproof
-    rev: v0.5.0
+    rev: v0.6.0
     hooks:
       - id: sciproof-check
       # Optional: validate the conventional sciproof.policy.toml as well.
@@ -186,7 +186,7 @@ the step unless the result is `PASS`.
 
 ```yaml
       - uses: actions/checkout@v7
-      - uses: hayagrivai-labs/sciproof@v0.5.0
+      - uses: hayagrivai-labs/sciproof@v0.6.0
         with:
           manifest: baseline.sciproof.json
           policy: sciproof.policy.toml     # optional
@@ -201,7 +201,7 @@ the step unless the result is `PASS`.
 | `policy` | | a [policy file](POLICY.md) |
 | `allowed-signers` | | an OpenSSH allowed-signers file ([signing](SIGNING.md)) |
 | `working-directory` | `.` | the directory the paths are relative to |
-| `version` | latest | the SciProof version to install, for example `0.5.0` (the action needs 0.3.0 or later and fails with a clear message on an older one) |
+| `version` | latest | the SciProof version to install, for example `0.6.0` (the action needs 0.3.0 or later and fails with a clear message on an older one) |
 | `install` | `true` | set to `false` if the job already installed SciProof |
 | `python-version` | `3.12` | used when `install` is true |
 

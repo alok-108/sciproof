@@ -15,7 +15,7 @@ Record a computational experiment once, then let anyone **check the evidence**: 
 unchanged, and does re-running the command give the recorded results, exactly or within a
 tolerance you declared?
 
-> **Status: 0.5.0.** Small, local-first, offline, zero runtime dependencies. Listed in [Awesome Reproducible Research](https://github.com/leipzig/awesome-reproducible-research#development-resources).
+> **Status: 0.6.0.** Small, local-first, offline, zero runtime dependencies. Listed in [Awesome Reproducible Research](https://github.com/leipzig/awesome-reproducible-research#development-resources).
 > See [For Researchers](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/RESEARCH.md) for paper reproducibility, artifact evaluation, and LaTeX integration.
 
 ## The problem
@@ -247,7 +247,7 @@ sciproof suggest-inputs [--input P]... [--output P]... -- COMMAND [ARGS...]
 * `update` captures the recorded experiment again with the declarations already in the manifest
   and shows what changed; it executes the recorded command, so it asks for confirmation
   ([details](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/UPDATE.md)).
-* In CI: `--format junit` for test viewers, and a GitHub Action (`uses: hayagrivai-labs/sciproof@v0.5.0`)
+* In CI: `--format junit` for test viewers, and a GitHub Action (`uses: hayagrivai-labs/sciproof@v0.6.0`)
   that verifies a manifest and writes the report to the job summary
   ([details](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/CI.md)).
 * `--clean-env` gives a rerun only a minimal environment (`PATH`, temp directories and the
@@ -273,7 +273,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: hayagrivai-labs/sciproof@v0.5.0
+      - uses: hayagrivai-labs/sciproof@v0.6.0
         with:
           manifest: results/baseline.sciproof.json
           policy: sciproof.policy.toml      # optional: rules the evidence must meet

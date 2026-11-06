@@ -22,11 +22,35 @@ SciProof automatically:
 
 ---
 
-## 2. Eliminate Paper Number Drift (Direct LaTeX Export)
+## 2. Eliminate Paper Number Drift (Direct Typst & LaTeX Export)
 
-The most common source of error in scientific papers is **copy-paste drift**: an experiment is rerun, but the author forgets to update a cell in Table 2 of the LaTeX draft.
+The most common source of error in scientific papers is **copy-paste drift**: an experiment is rerun, but the author forgets to update a cell in Table 2 of the manuscript draft.
 
-SciProof lets your LaTeX document directly pull numbers from verified experiment outputs:
+### Typst Export
+Typst is the modern scientific typesetting standard. Export verified metrics as native Typst variables:
+
+```bash
+sciproof export main-experiment.sciproof.json --format typst -o evidence.typ \
+  --value accuracy out/metrics.json "$.test_accuracy" \
+  --value fone out/metrics.json "$.f1_score"
+```
+
+This generates `evidence.typ`:
+```typst
+// SciProof 0.6.0: values of main-experiment.sciproof.json (integrity verification: PASS)
+#let accuracy = 0.942
+#let fone = 0.918
+```
+
+In your paper's `.typ` document:
+```typst
+#import "evidence.typ": accuracy, fone
+
+Our proposed architecture achieved a test accuracy of #accuracy and an F1-score of #fone.
+```
+
+### LaTeX Export
+For LaTeX documents:
 
 ```bash
 sciproof export main-experiment.sciproof.json --format latex -o paper_values.tex \
@@ -36,7 +60,7 @@ sciproof export main-experiment.sciproof.json --format latex -o paper_values.tex
 
 This generates `paper_values.tex`:
 ```latex
-% SciProof 0.4.0: values of main-experiment.sciproof.json (integrity verification: PASS)
+% SciProof 0.6.0: values of main-experiment.sciproof.json (integrity verification: PASS)
 \newcommand{\accuracy}{0.942}
 \newcommand{\fone}{0.918}
 ```
@@ -110,7 +134,7 @@ If you use SciProof in a published paper or artifact submission, cite it using:
   title = {SciProof: Verifiable Computational Evidence and Reproducibility for Scientific Experiments},
   url = {https://hayagrivai-labs.github.io/sciproof/},
   doi = {10.5281/zenodo.23676138},
-  version = {0.5.0},
+  version = {0.6.0},
   year = {2026}
 }
 ```

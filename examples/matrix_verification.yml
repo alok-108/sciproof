@@ -31,6 +31,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install SciProof
-        run: python -m pip install "sciproof==0.5.0"
+        run: python -m pip install "sciproof==0.6.0"
       - name: Verify evidence integrity
         run: sciproof verify baseline.sciproof.json --format markdown
