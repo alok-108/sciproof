@@ -54,3 +54,23 @@ def test_calibrate_cli_threads(tmp_path: Path, monkeypatch, capsys):
     assert code == 0
     captured = capsys.readouterr()
     assert "RESULT: STABLE" in captured.out
+
+
+def test_calibrate_cli_rejects_seeds_and_threads(capsys):
+    code = main(
+        [
+            "calibrate",
+            "missing.sciproof.json",
+            "--seeds",
+            "1,2",
+            "--threads",
+            "1,2,4",
+            "--yes",
+        ]
+    )
+
+    assert code == 3
+    assert capsys.readouterr().err == (
+        "error: cannot specify both --seeds and --threads: "
+        "calibrate variance across seeds OR threads\n"
+    )

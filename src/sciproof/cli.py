@@ -1029,6 +1029,11 @@ def _run_calibrate(args: argparse.Namespace) -> int:
 
     output_format = _report_format(args)
 
+    if getattr(args, "seeds", None) and getattr(args, "threads", None):
+        raise UsageError(
+            "cannot specify both --seeds and --threads: calibrate variance across seeds OR threads"
+        )
+
     seeds = None
     if getattr(args, "seeds", None):
         try:
