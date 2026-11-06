@@ -87,3 +87,61 @@ def test_typst_empty_values_raises(tmp_path: Path):
     )
     with pytest.raises(UsageError, match="give at least one --value"):
         to_typst(result.manifest_path, [])
+
+
+def test_typst_reserved_keywords_rejected(tmp_path: Path):
+    (tmp_path / "metrics.json").write_text('{"score": 1}', encoding="utf-8")
+    result = capture(
+        name="reserved_typst_names",
+        argv=["python", "-c", "pass"],
+        base=tmp_path,
+        outputs=["metrics.json"],
+    )
+
+    for keyword in (
+        "and",
+        "as",
+        "auto",
+        "break",
+        "continue",
+        "else",
+        "false",
+        "for",
+        "if",
+        "import",
+        "in",
+        "include",
+        "let",
+        "none",
+        "not",
+        "or",
+        "return",
+        "set",
+        "show",
+        "true",
+        "while",
+    ):
+        with pytest.raises(UsageError, match="reserved Typst keyword"):
+            to_typst(result.manifest_path, [(keyword, "metrics.json", "$.score")])
+
+    # Typst keyword matching is case-sensitive.
+    assert "#let Let = 1" in to_typst(result.manifest_path, [("Let", "metrics.json", "$.score")])
+
+
+def test_typst_auto_names_avoid_reserved_keywords_and_collisions(tmp_path: Path):
+    (tmp_path / "metrics.json").write_text(
+        json.dumps({"let": 1, "let_val": 2, "return": 3}), encoding="utf-8"
+    )
+    result = capture(
+        name="auto_typst_names",
+        argv=["python", "-c", "pass"],
+        base=tmp_path,
+        outputs=["metrics.json"],
+    )
+
+    output = to_typst(result.manifest_path)
+    assert "#let let_val = 1" in output
+    assert "#let let_val_1 = 2" in output
+    assert "#let return_val = 3" in output
+    assert "#let let =" not in output
+    assert "#let return =" not in output

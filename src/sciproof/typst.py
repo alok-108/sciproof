@@ -30,6 +30,31 @@ from sciproof.textutil import safe_text
 from sciproof.verify import Status, verify
 
 TYPST_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,40}$")
+TYPST_RESERVED_KEYWORDS = frozenset(
+    {
+        "and",
+        "as",
+        "auto",
+        "break",
+        "continue",
+        "else",
+        "false",
+        "for",
+        "if",
+        "import",
+        "in",
+        "include",
+        "let",
+        "none",
+        "not",
+        "or",
+        "return",
+        "set",
+        "show",
+        "true",
+        "while",
+    }
+)
 MAX_VALUES = 200
 
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
@@ -73,9 +98,13 @@ def _auto_typst_name(location: str, output_path: str, existing: set[str]) -> str
         name = f"var_{name}"[:35]
     if not name:
         name = "metric"
+    if name in TYPST_RESERVED_KEYWORDS:
+        name = f"{name}_val"
     base_name = name
     counter = 1
-    while name in existing or not TYPST_IDENTIFIER.fullmatch(name):
+    while (
+        name in existing or name in TYPST_RESERVED_KEYWORDS or not TYPST_IDENTIFIER.fullmatch(name)
+    ):
         name = f"{base_name[:30]}_{counter}"
         counter += 1
     existing.add(name)
@@ -132,6 +161,11 @@ def to_typst(manifest_path: Path | str, values: list[tuple[str, str, str]] | Non
             raise UsageError(
                 f"--value {safe_text(name, 60)!r}: a Typst variable name must be 1 to 40 "
                 "alphanumeric/underscore characters and cannot start with a digit"
+            )
+        if name in TYPST_RESERVED_KEYWORDS:
+            raise UsageError(
+                f"--value {name!r}: '{name}' is a reserved Typst keyword; "
+                "choose a different variable name"
             )
     if len(set(names)) != len(names):
         raise UsageError("a variable name is used more than once")
