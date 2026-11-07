@@ -10,8 +10,13 @@ from sciproof import cli
 
 
 @pytest.fixture(
-    params=[["verify", "exp.sciproof.json", "--rerun"], ["update", "exp.sciproof.json"]],
-    ids=["verify", "update"],
+    params=[
+        (["verify", "exp.sciproof.json", "--rerun"], 1),
+        (["update", "exp.sciproof.json"], 1),
+        (["calibrate", "exp.sciproof.json", "--runs", "2"], 2),
+        (["badge", "exp.sciproof.json", "--rerun"], 1),
+    ],
+    ids=["verify", "update", "calibrate", "badge"],
 )
 def confirmed_command(request):
     return request.param
@@ -39,6 +44,7 @@ def _evidence(project):
 def test_only_an_explicit_yes_executes_the_recorded_command(
     project, confirmed_command, answer, accepted, monkeypatch, capsys
 ):
+    argv, run_delta = confirmed_command
     project.capture()
     runs = project.runs()
     evidence = _evidence(project)
@@ -51,10 +57,10 @@ def test_only_an_explicit_yes_executes_the_recorded_command(
 
     monkeypatch.setattr("builtins.input", reply)
 
-    result = cli.main(confirmed_command)
+    result = cli.main(argv)
 
     assert result == (cli.EXIT_OK if accepted else cli.EXIT_INCONCLUSIVE)
-    assert project.runs() == runs + int(accepted)
+    assert project.runs() == runs + (run_delta if accepted else 0)
     assert prompts == ["\nExecute this command? Type 'yes' to continue: "]
     assert "experiment.py" in capsys.readouterr().err
     if not accepted:
@@ -68,6 +74,7 @@ def test_only_an_explicit_yes_executes_the_recorded_command(
 def test_interrupted_confirmation_executes_nothing_and_keeps_the_evidence(
     project, confirmed_command, exception, message, monkeypatch, capsys
 ):
+    argv, _run_delta = confirmed_command
     project.capture()
     runs = project.runs()
     evidence = _evidence(project)
@@ -78,7 +85,7 @@ def test_interrupted_confirmation_executes_nothing_and_keeps_the_evidence(
 
     monkeypatch.setattr("builtins.input", interrupt)
 
-    assert cli.main(confirmed_command) == cli.EXIT_ERROR == 3
+    assert cli.main(argv) == cli.EXIT_ERROR == 3
     assert message in capsys.readouterr().err
     assert project.runs() == runs
     assert _evidence(project) == evidence
