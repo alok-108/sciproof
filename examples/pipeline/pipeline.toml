@@ -1,0 +1,15 @@
+# Pipeline definition for this example: prep -> train.
+# The manifests (prep.sciproof.json, train.sciproof.json) are created by the
+# `sciproof record` commands in README.md; they are not committed, because
+# they contain the hashes of the files on your machine at record time.
+[pipeline]
+name = "pipeline_example"
+
+[[steps]]
+name = "prep"
+manifest = "prep.sciproof.json"
+
+[[steps]]
+name = "train"
+manifest = "train.sciproof.json"
+depends_on = ["prep"]
