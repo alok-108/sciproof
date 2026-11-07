@@ -6,11 +6,13 @@ import json
 from pathlib import Path
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from sciproof.capture import capture
 from sciproof.cli import main
 from sciproof.errors import UsageError
-from sciproof.typst import format_typst_value, to_typst
+from sciproof.typst import TYPST_IDENTIFIER, _auto_typst_name, format_typst_value, to_typst
 
 
 def test_format_typst_literals():
@@ -145,3 +147,48 @@ def test_typst_auto_names_avoid_reserved_keywords_and_collisions(tmp_path: Path)
     assert "#let return_val = 3" in output
     assert "#let let =" not in output
     assert "#let return =" not in output
+
+
+GENERATED = settings(max_examples=120, deadline=None, derandomize=True)
+
+
+@GENERATED
+@given(location=st.text(max_size=120), output_path=st.text(max_size=120))
+def test_auto_typst_name_is_always_a_valid_identifier(location, output_path):
+    existing: set[str] = set()
+    name = _auto_typst_name(location, output_path, existing)
+    assert TYPST_IDENTIFIER.fullmatch(name)
+    assert name in existing
+
+
+@GENERATED
+@given(locations=st.lists(st.text(max_size=60), max_size=12), output_path=st.text(max_size=60))
+def test_auto_typst_names_never_collide(locations, output_path):
+    existing: set[str] = set()
+    names = [_auto_typst_name(location, output_path, existing) for location in locations]
+    assert all(TYPST_IDENTIFIER.fullmatch(name) for name in names)
+    assert len(set(names)) == len(names)
+
+
+@GENERATED
+@given(value=st.floats())
+def test_format_typst_value_renders_any_float(value):
+    rendered = format_typst_value(value)
+    assert isinstance(rendered, str)
+    assert rendered
+
+
+@GENERATED
+@given(
+    value=st.one_of(
+        st.none(),
+        st.booleans(),
+        st.integers(),
+        st.floats(),
+        st.text(max_size=200),
+    )
+)
+def test_format_typst_value_renders_any_literal(value):
+    rendered = format_typst_value(value)
+    assert isinstance(rendered, str)
+    assert rendered

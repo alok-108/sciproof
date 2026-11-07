@@ -600,6 +600,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
     pip.add_argument("pipeline_file", type=Path, help="path to pipeline TOML configuration")
 
+    pip.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        default=argparse.SUPPRESS,
+        help="minimal terminal output: suppress banners and step details",
+    )
+
     pol = sub.add_parser(
         "check-policy",
         help="validate a policy file and list its rules (nothing is verified)",
@@ -866,7 +874,12 @@ def _run_export(args: argparse.Namespace) -> int:
 
 def _run_pipeline(args: argparse.Namespace) -> int:
     report = verify_pipeline(args.pipeline_file)
-    print(report.to_text())
+    if getattr(args, "quiet", False):
+        print(f"RESULT: {report.status.value}")
+        if report.status is not Status.PASS:
+            print(report.to_text(), file=sys.stderr)
+    else:
+        print(report.to_text())
     return {Status.PASS: EXIT_OK, Status.FAIL: EXIT_FAIL, Status.INCONCLUSIVE: EXIT_INCONCLUSIVE}[
         report.status
     ]
@@ -1028,6 +1041,11 @@ def _run_record(args: argparse.Namespace) -> int:
 def _run_calibrate(args: argparse.Namespace) -> int:
 
     output_format = _report_format(args)
+
+    if getattr(args, "seeds", None) and getattr(args, "threads", None):
+        raise UsageError(
+            "cannot specify both --seeds and --threads: calibrate variance across seeds OR threads"
+        )
 
     seeds = None
     if getattr(args, "seeds", None):
