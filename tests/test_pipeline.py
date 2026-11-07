@@ -139,3 +139,58 @@ manifest = "{res.manifest_path.name}"
 def test_pipeline_missing_file_raises(tmp_path: Path):
     with pytest.raises(UsageError, match="pipeline file not found"):
         load_pipeline(tmp_path / "missing.toml")
+
+
+def _write_quiet_pipeline(tmp_path: Path, *, tampered: bool) -> Path:
+    features = tmp_path / "features.csv"
+    features.write_text("original", encoding="utf-8")
+    prep = capture(
+        name="quiet_prep",
+        argv=["python", "-c", "pass"],
+        base=tmp_path,
+        outputs=["features.csv"],
+    )
+    depends = ""
+    if tampered:
+        features.write_text("tampered", encoding="utf-8")
+        train = capture(
+            name="quiet_train",
+            argv=["python", "-c", "pass"],
+            base=tmp_path,
+            inputs=["features.csv"],
+            outputs=[],
+        )
+        depends = f"""
+[[steps]]
+name = "train"
+manifest = "{train.manifest_path.name}"
+depends_on = ["prep"]
+"""
+    toml = tmp_path / "pipeline.toml"
+    toml.write_text(
+        f"""[pipeline]
+name = "quiet_pipe"
+
+[[steps]]
+name = "prep"
+manifest = "{prep.manifest_path.name}"
+{depends}""",
+        encoding="utf-8",
+    )
+    return toml
+
+
+def test_pipeline_quiet_pass(tmp_path: Path, capsys):
+    toml = _write_quiet_pipeline(tmp_path, tampered=False)
+    assert main(["pipeline", "verify", str(toml), "-q"]) == 0
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "RESULT: PASS"
+    assert captured.err == ""
+
+
+def test_pipeline_quiet_fail_reports_details_on_stderr(tmp_path: Path, capsys):
+    toml = _write_quiet_pipeline(tmp_path, tampered=True)
+    assert main(["pipeline", "verify", str(toml), "-q"]) == 1
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "RESULT: FAIL"
+    assert "chain-of-custody break" in captured.err
