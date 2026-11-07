@@ -260,3 +260,52 @@ def test_a_signature_whose_principal_is_after_the_fifth_is_still_good(signed, mo
     result = check_signature(signed.manifest, signed.allowed)
     assert result.status == "good"
     assert result.principal == "p6@example.org"
+
+
+def test_check_signature_manifest_not_found(signed):
+    missing_manifest = signed.manifest.parent / "missing.sciproof.json"
+    sig = signature_path(missing_manifest)
+    sig.write_text("signature content")
+    result = check_signature(missing_manifest, signed.allowed)
+    assert result.status == "unavailable"
+    assert "manifest file not found or is not a regular file" in result.message
+
+
+def test_check_signature_manifest_is_a_directory(signed):
+    dir_manifest = signed.manifest.parent / "dir_manifest"
+    dir_manifest.mkdir()
+    sig = signature_path(dir_manifest)
+    sig.write_text("signature content")
+    result = check_signature(dir_manifest, signed.allowed)
+    assert result.status == "unavailable"
+    assert "manifest file not found or is not a regular file" in result.message
+
+
+def test_check_signature_manifest_exceeds_max_bytes(signed, monkeypatch):
+    import os
+
+    orig_stat = Path.stat
+
+    def mock_stat(self, *args, **kwargs):
+        res = orig_stat(self, *args, **kwargs)
+        if self.resolve() == signed.manifest.resolve():
+            return os.stat_result(
+                (
+                    res.st_mode,
+                    res.st_ino,
+                    res.st_dev,
+                    res.st_nlink,
+                    res.st_uid,
+                    res.st_gid,
+                    20 * 1024 * 1024,
+                    res.st_atime,
+                    res.st_mtime,
+                    res.st_ctime,
+                )
+            )
+        return res
+
+    monkeypatch.setattr(Path, "stat", mock_stat)
+    result = check_signature(signed.manifest, signed.allowed)
+    assert result.status == "unavailable"
+    assert "larger than" in result.message
