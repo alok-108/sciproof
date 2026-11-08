@@ -1,3 +1,4 @@
+
 """``sciproof list`` (the directory is the ledger) and ``sciproof export``."""
 
 from __future__ import annotations
@@ -12,7 +13,14 @@ import pytest
 from sciproof import cli
 from sciproof.errors import ManifestError, UsageError
 from sciproof.export import PREDICATE_TYPE, STATEMENT_TYPE, to_in_toto
-from sciproof.ledger import Entry, format_json, format_markdown, list_manifests, worst_verdict
+from sciproof.ledger import (
+    Entry,
+    format_json,
+    format_markdown,
+    format_text,
+    list_manifests,
+    worst_verdict,
+)
 
 # ---------------------------------------------------------------- list
 
@@ -29,7 +37,9 @@ def test_manifests_are_listed_newest_first_with_their_facts(project):
     entries = list_manifests(project.root)
     assert [e.name for e in entries] == ["b", "a"]
     b = entries[0]
-    assert (b.file, b.exit_code, b.inputs, b.outputs, b.claims) == ("b.sciproof.json", 0, 2, 2, 1)
+    assert (b.file, b.exit_code, b.inputs, b.outputs, b.claims) == (
+        "b.sciproof.json", 0, 2, 2, 1
+    )
     assert b.signed is False and b.verdict is None and b.error is None
 
 
@@ -139,6 +149,92 @@ def test_markdown_escapes_file_names_and_errors():
     text = format_markdown(entries, False)
     assert "<script>" not in text and "<img" not in text
     assert "a\\|b&lt;script&gt;" in text
+
+
+# ---------------------------------------------------------- formatting tests
+
+
+def test_format_text_with_no_entries():
+    assert format_text([], checked=False) == "no manifests found"
+
+
+def test_format_text_shows_git_dirty_and_signature():
+    entry = Entry(
+        file="run.json",
+        created_at="2026-11-08",
+        exit_code=0,
+        commit="abc123",
+        dirty=True,
+        signed=True,
+    )
+
+    result = format_text([entry], checked=False)
+
+    assert "git abc123+dirty" in result
+    assert "signed" in result
+
+
+def test_format_text_shows_invalid_entry():
+    entry = Entry(file="broken.json", error="invalid manifest")
+
+    result = format_text([entry], checked=True)
+
+    assert "broken.json  INVALID: invalid manifest" in result
+    assert "summary: 1 manifest(s): , 1 invalid" in result
+
+
+def test_format_text_escapes_newlines_in_notes():
+    entry = Entry(file="run.json", note="first line\nsecond line")
+
+    result = format_text([entry], checked=False)
+
+    assert "note: first line\\nsecond line" in result
+
+
+def test_format_json_shows_mixed_verdicts():
+    entries = [
+        Entry(file="pass.json", verdict="PASS"),
+        Entry(file="inconclusive.json", verdict="INCONCLUSIVE"),
+        Entry(file="fail.json", verdict="FAIL"),
+        Entry(file="invalid.json", error="invalid manifest"),
+    ]
+
+    result = json.loads(format_json(entries, checked=True))
+
+    assert result["checked"] is True
+    assert result["result"] == "FAIL"
+    assert result["summary"] == (
+        "4 manifest(s): 1 PASS, 1 FAIL, 1 INCONCLUSIVE, 1 invalid"
+    )
+    assert len(result["manifests"]) == 4
+
+
+def test_format_markdown_with_no_entries():
+    result = format_markdown([], checked=False)
+
+    assert "## SciProof manifests" in result
+    assert "> 0 manifest(s)" in result
+    assert "| File | Name | Captured | Exit | Git | Signed | Result |" not in result
+
+
+def test_format_markdown_shows_valid_entry():
+    entry = Entry(
+        file="run.json",
+        name="Example",
+        created_at="2026-11-08",
+        exit_code=0,
+        commit="abc123",
+        dirty=True,
+        signed=True,
+        verdict="PASS",
+    )
+
+    result = format_markdown([entry], checked=True)
+
+    assert "| run.json | Example | 2026-11-08 | 0 " in result
+    assert "abc123 (dirty)" in result
+    assert "| yes | PASS |" in result
+    assert "> 1 manifest(s): 1 PASS" in result
 
 
 # ---------------------------------------------------------------- export
