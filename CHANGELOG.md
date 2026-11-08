@@ -6,6 +6,8 @@ All notable changes are listed here. The format follows
 
 ## [Unreleased]
 
+* **Robust signature verification (check_signature):** Gracefully return unavailable status when manifest_path is missing, a directory, unreadable, or exceeds MAX_MANIFEST_BYTES instead of crashing with unhandled file exceptions (#264).
+
 ## [0.6.0] - 2026-11-05
 
 * **Typst Scientific Publishing Module:** Native variable export for the modern Typst publishing ecosystem (`sciproof export <manifest> --format typst`), with support for IEEE 754 floats (`calc.nan`, `calc.inf`), booleans, strings, and auto-named variables.

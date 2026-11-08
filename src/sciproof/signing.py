@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from sciproof.errors import SciProofError, UsageError
-from sciproof.manifest import load_manifest
+from sciproof.manifest import MAX_MANIFEST_BYTES, load_manifest
 from sciproof.textutil import safe_text
 
 NAMESPACE = "sciproof-manifest@hayagrivai-labs"
@@ -131,6 +131,26 @@ def check_signature(manifest_path: Path | str, allowed_signers: Path | str) -> S
         raise UsageError(f"allowed signers file not found: {allowed_signers}")
     if not signature.is_file():
         return SignatureResult("missing", f"no signature file {name} next to the manifest", name)
+    if not manifest_path.is_file():
+        return SignatureResult(
+            "unavailable",
+            f"manifest file not found or is not a regular file: {manifest_path.name}",
+            name,
+        )
+    try:
+        size = manifest_path.stat().st_size
+    except OSError as exc:
+        return SignatureResult(
+            "unavailable",
+            f"cannot read manifest {manifest_path.name}: {exc}",
+            name,
+        )
+    if size > MAX_MANIFEST_BYTES:
+        return SignatureResult(
+            "unavailable",
+            f"manifest is larger than {MAX_MANIFEST_BYTES} bytes: {manifest_path.name}",
+            name,
+        )
     executable = ssh_keygen()
     if executable is None:
         return SignatureResult(
@@ -154,7 +174,14 @@ def check_signature(manifest_path: Path | str, allowed_signers: Path | str) -> S
                 "(or the signature file is damaged)",
                 name,
             )
-        data = manifest_path.read_bytes()
+        try:
+            data = manifest_path.read_bytes()
+        except OSError as exc:
+            return SignatureResult(
+                "unavailable",
+                f"cannot read manifest {manifest_path.name}: {exc}",
+                name,
+            )
         # Try every principal find-principals returned. There is no
         # arbitrary cutoff: stopping after a fixed number would falsely
         # report a valid signature as bad when its principal is later
