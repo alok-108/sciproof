@@ -1,4 +1,3 @@
-
 """``sciproof list`` (the directory is the ledger) and ``sciproof export``."""
 
 from __future__ import annotations
@@ -37,9 +36,7 @@ def test_manifests_are_listed_newest_first_with_their_facts(project):
     entries = list_manifests(project.root)
     assert [e.name for e in entries] == ["b", "a"]
     b = entries[0]
-    assert (b.file, b.exit_code, b.inputs, b.outputs, b.claims) == (
-        "b.sciproof.json", 0, 2, 2, 1
-    )
+    assert (b.file, b.exit_code, b.inputs, b.outputs, b.claims) == ("b.sciproof.json", 0, 2, 2, 1)
     assert b.signed is False and b.verdict is None and b.error is None
 
 
@@ -203,9 +200,7 @@ def test_format_json_shows_mixed_verdicts():
 
     assert result["checked"] is True
     assert result["result"] == "FAIL"
-    assert result["summary"] == (
-        "4 manifest(s): 1 PASS, 1 FAIL, 1 INCONCLUSIVE, 1 invalid"
-    )
+    assert result["summary"] == ("4 manifest(s): 1 PASS, 1 FAIL, 1 INCONCLUSIVE, 1 invalid")
     assert len(result["manifests"]) == 4
 
 
