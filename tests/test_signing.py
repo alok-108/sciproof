@@ -285,10 +285,12 @@ def test_check_signature_manifest_exceeds_max_bytes(signed, monkeypatch):
     import os
 
     orig_stat = Path.stat
+    manifest_resolved_str = str(signed.manifest.resolve())
+    manifest_str = str(signed.manifest)
 
     def mock_stat(self, *args, **kwargs):
         res = orig_stat(self, *args, **kwargs)
-        if self.resolve() == signed.manifest.resolve():
+        if str(self) in (manifest_str, manifest_resolved_str):
             return os.stat_result(
                 (
                     res.st_mode,
