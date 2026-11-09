@@ -1,4 +1,3 @@
-
 """``sciproof inspect``: the readable summary covers every recorded manifest shape."""
 
 from __future__ import annotations
@@ -43,7 +42,9 @@ def test_recorded_hardware_and_gpus_are_listed(project):
         "gpu_probe": "nvidia-smi",
         "gpus": [{"name": "NVIDIA Test GPU"}, {"name": "NVIDIA Second GPU"}],
     }
-    assert "hardware:    8 CPUs, Test CPU; GPUs: NVIDIA Test GPU, NVIDIA Second GPU" in describe(manifest)
+    assert "hardware:    8 CPUs, Test CPU; GPUs: NVIDIA Test GPU, NVIDIA Second GPU" in describe(
+        manifest
+    )
 
 
 def test_empty_stream_preview_is_displayed(project):
@@ -55,9 +56,7 @@ def test_empty_stream_preview_is_displayed(project):
 
 def test_long_stream_preview_is_limited_to_eight_lines(project):
     manifest = _captured(project)
-    manifest["execution"]["stdout"]["text"] = "\n".join(
-        f"line {number}" for number in range(1, 11)
-    )
+    manifest["execution"]["stdout"]["text"] = "\n".join(f"line {number}" for number in range(1, 11))
     manifest["execution"]["stdout"]["truncated"] = False
     text = describe(manifest)
     assert "      | line 1" in text
