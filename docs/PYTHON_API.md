@@ -111,6 +111,30 @@ def test_metrics_have_not_drifted():
     assert report.status is sciproof.Status.PASS, report.reason
 ```
 
+## Pytest plugin
+
+SciProof automatically registers as a pytest plugin via the `pytest11` entry point.
+Pass `--sciproof` to collect and verify `*.sciproof.json` files alongside normal tests:
+
+```bash
+pytest --sciproof
+```
+
+To re-run commands recorded in the manifests, pass `--sciproof-rerun`.
+
+> [!WARNING]
+> `--sciproof-rerun` **executes the recorded commands** without confirmation.
+> Pass `--sciproof-clean-env` to isolate execution from ambient credentials and process environment.
+
+Supported flags and INI settings:
+* `--sciproof` (`sciproof = true`): discover and verify manifests
+* `--sciproof-rerun` (`sciproof_rerun = true`): re-execute recorded commands
+* `--sciproof-clean-env` (`sciproof_clean_env = true`): run rerun in clean minimal environment
+* `--sciproof-pass-env NAME` (`sciproof_pass_env = NAME ...`): environment variables to pass through
+* `--sciproof-timeout SEC` (`sciproof_timeout = SEC`): rerun timeout in seconds
+* `--sciproof-policy FILE` (`sciproof_policy = FILE`): check policy file
+* `--sciproof-allowed-signers FILE` (`sciproof_allowed_signers = FILE`): OpenSSH allowed-signers file
+
 ## Stability
 
 SciProof is alpha software (0.x). The names above are intended to stay; a change to them is
