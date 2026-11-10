@@ -183,3 +183,102 @@ def test_expand_glob_dotdot_pattern_raises(tmp_path, pattern):
 def test_expand_glob_empty_segment_raises(tmp_path):
     with pytest.raises(UnsafePathError):
         expand_glob(tmp_path, "dir//*.txt")
+
+
+def test_output_glob_overlapping_input_raises_clean_capture_error(project):
+    data_dir = project.root / "data"
+    data_dir.mkdir(exist_ok=True)
+    in_file = data_dir / "in.csv"
+    in_file.write_text("1,2\n")
+
+    script = (
+        "import pathlib\n"
+        "d = pathlib.Path('data')\n"
+        "d.mkdir(exist_ok=True)\n"
+        "(d / 'out.csv').write_text('3,4\\n')\n"
+    )
+
+    with pytest.raises(CaptureError, match="a file cannot be both input and output: data/in.csv"):
+        capture(
+            name="overlap_test",
+            argv=[sys.executable, "-c", script],
+            base=project.root,
+            inputs=["data/in.csv"],
+            outputs=["data/*.csv"],
+            numeric_outputs=[],
+        )
+
+    assert not (project.root / "overlap_test.sciproof.json").exists()
+
+
+def test_tolerance_on_glob_matched_numeric_output(project):
+    script = (
+        "import pathlib, json\n"
+        "d = pathlib.Path('out_tol')\n"
+        "d.mkdir(exist_ok=True)\n"
+        "with open(d / 'loss.json', 'w') as f:\n"
+        "    json.dump({'l': 1.0}, f)\n"
+    )
+
+    res = capture(
+        name="tol_glob_test",
+        argv=[sys.executable, "-c", script],
+        base=project.root,
+        inputs=[],
+        outputs=[],
+        numeric_outputs=["out_tol/*.json"],
+        tolerances={"out_tol/loss.json": {"rtol": 1e-3, "atol": 1e-4}},
+    )
+
+    assert res.exit_code == 0
+    record = next(o for o in res.manifest["outputs"] if o["path"] == "out_tol/loss.json")
+    assert record["compare"]["rtol"] == 1e-3
+    assert record["compare"]["atol"] == 1e-4
+
+
+def test_claim_on_glob_matched_output(project):
+    script = (
+        "import pathlib, json\n"
+        "d = pathlib.Path('out_claim')\n"
+        "d.mkdir(exist_ok=True)\n"
+        "with open(d / 'metrics.json', 'w') as f:\n"
+        "    json.dump({'acc': 0.95}, f)\n"
+    )
+
+    res = capture(
+        name="claim_glob_test",
+        argv=[sys.executable, "-c", script],
+        base=project.root,
+        inputs=[],
+        outputs=[],
+        numeric_outputs=["out_claim/*.json"],
+        claims=[("out_claim/metrics.json", "$.acc >= 0.9")],
+    )
+
+    assert res.exit_code == 0
+    assert len(res.manifest["claims"]) == 1
+    assert res.manifest["claims"][0]["output"] == "out_claim/metrics.json"
+    assert res.manifest["claims"][0]["location"] == "$.acc"
+
+
+def test_tolerance_on_glob_pattern_file_not_produced_fails(project):
+    script = (
+        "import pathlib, json\n"
+        "d = pathlib.Path('out_unproduced')\n"
+        "d.mkdir(exist_ok=True)\n"
+        "with open(d / 'other.json', 'w') as f:\n"
+        "    json.dump({'x': 1}, f)\n"
+    )
+
+    with pytest.raises(CaptureError, match="not matched by any --output-numeric declaration"):
+        capture(
+            name="unproduced_tol_test",
+            argv=[sys.executable, "-c", script],
+            base=project.root,
+            inputs=[],
+            outputs=[],
+            numeric_outputs=["out_unproduced/*.json"],
+            tolerances={"out_unproduced/missing.json": {"rtol": 1e-3}},
+        )
+
+    assert not (project.root / "unproduced_tol_test.sciproof.json").exists()
