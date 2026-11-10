@@ -9,7 +9,7 @@ import pytest
 
 from sciproof import cli
 from sciproof.errors import SciProofError, UsageError
-from sciproof.latex import format_value, to_latex
+from sciproof.latex import MACRO_NAME, _auto_macro_name, format_value, to_latex
 from sciproof.numeric import NumericFormatError
 
 RESULT = "out/result.json"
@@ -152,3 +152,65 @@ def test_an_unreadable_numeric_output_is_reported_with_its_name(project, monkeyp
     monkeypatch.setattr("sciproof.latex.load_numeric", unreadable)
     with pytest.raises(SciProofError, match="result.json"):
         to_latex(project.manifest, _values(("answer", RESULT, "$.value")))
+
+
+def test_auto_macro_name_resolves_collisions_with_stem_and_letters():
+    existing = set()
+    name1 = _auto_macro_name("$.loss", "eval.json", existing)
+    assert name1 == "Loss"
+    assert "Loss" in existing
+
+    # Second collision tries output stem
+    name2 = _auto_macro_name("$.loss", "eval.json", existing)
+    assert name2 == "EvalLoss"
+    assert "EvalLoss" in existing
+
+    # Third collision disambiguates with letter suffix
+    name3 = _auto_macro_name("$.loss", "eval.json", existing)
+    assert name3 == "EvalLossB"
+    assert "EvalLossB" in existing
+
+    name4 = _auto_macro_name("$.loss", "eval.json", existing)
+    assert name4 == "EvalLossC"
+    assert "EvalLossC" in existing
+
+
+def test_auto_macro_name_bounded_and_always_valid_latex():
+    existing = {f"Loss{chr(65 + i)}" for i in range(26)}
+    existing.add("Loss")
+    existing.add("EvalLoss")
+    original_existing = set(existing)
+    name = _auto_macro_name("$.loss", "eval.json", existing)
+    assert MACRO_NAME.fullmatch(name)
+    assert name not in original_existing
+    assert name in existing
+
+
+def test_auto_macro_name_edge_cases():
+    name = _auto_macro_name("$.0_accuracy", "eval.json", set())
+    assert name.startswith("Eval") and "Accuracy" in name
+    assert MACRO_NAME.fullmatch(name)
+
+    assert _auto_macro_name("$.__", "123.json", set()) == "Metric"
+
+
+def test_auto_export_nested_json_and_csv_succeeds(project):
+    script = (
+        "import json, pathlib\n"
+        "pathlib.Path('out').mkdir(exist_ok=True)\n"
+        "with open('out/nested.json', 'w') as f:\n"
+        "    json.dump({'items': [1, 2], 'metrics': {'loss': 0.1}}, f)\n"
+        "pathlib.Path('out/table.csv').write_text('a,b\\n1,2\\n3,4\\n')\n"
+    )
+    project.capture(
+        argv=[sys.executable, "-c", script],
+        inputs=[],
+        outputs=[],
+        numeric_outputs=["out/nested.json", "out/table.csv"],
+    )
+    text = to_latex(project.manifest)
+    assert "\\newcommand{\\" in text
+    assert "integrity verification: PASS" in text
+    assert "#len" not in text
+    assert "#keys" not in text
+    assert "#cols" not in text

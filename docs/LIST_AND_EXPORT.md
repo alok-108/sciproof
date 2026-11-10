@@ -126,6 +126,9 @@ In the paper: `\input{numbers.tex}` and then `accuracy \accuracy{}`.
 * `--value NAME OUTPUT LOCATION`: `NAME` is the macro name (1 to 40 letters; `\newcommand` stops
   with an error if it is already defined), `OUTPUT` a declared `.json`, `.csv` or `.tsv` output,
   `LOCATION` the same form as in [claims](CLAIMS.md) (`$.key[0].name`, or `r2c1` for a table).
+  If `--value` is omitted, value locations across declared numeric outputs are automatically exported
+  (up to 200 values), using location keys for macro names, qualifying collisions with output file stems,
+  and disambiguating further collisions with alphabetical suffixes.
 * **Nothing is written unless the integrity verification of the manifest is `PASS`**: if an output
   was modified since the capture, the export stops with an error and says why. Nothing is
   executed.
