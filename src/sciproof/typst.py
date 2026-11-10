@@ -140,7 +140,7 @@ def to_typst(manifest_path: Path | str, values: list[tuple[str, str, str]] | Non
             except (NumericFormatError, SciProofError, OSError):
                 continue
             for loc in leaves:
-                if loc.startswith("$#"):
+                if not location_matches_file(loc, out_path):
                     continue
                 var_name = _auto_typst_name(loc, out_path, used_names)
                 auto_values.append((var_name, out_path, loc))

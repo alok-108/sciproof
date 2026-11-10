@@ -46,7 +46,7 @@ def location_matches_file(location: str, output: str) -> bool:
         return False
     if output.lower().endswith(".json"):
         return bool(JSON_LOCATION.fullmatch(location))
-    if output.lower().endswith(".csv"):
+    if output.lower().endswith((".csv", ".tsv")):
         return bool(CSV_LOCATION.fullmatch(location))
     return False
 

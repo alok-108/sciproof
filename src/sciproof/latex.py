@@ -86,6 +86,15 @@ def _read(base: Path, output: str, location: str, cache: dict[str, dict[str, obj
     return leaves[location]
 
 
+def _int_to_letters(n: int) -> str:
+    """Convert a positive integer to letters (1 -> A, 2 -> B, ..., 26 -> Z, 27 -> AA)."""
+    result = []
+    while n > 0:
+        n, rem = divmod(n - 1, 26)
+        result.append(chr(ord("A") + rem))
+    return "".join(reversed(result))
+
+
 def _auto_macro_name(location: str, output_path: str, existing: set[str]) -> str:
     raw = location.removeprefix("$.")
     parts = [p for p in re.split(r"[^A-Za-z0-9]+", raw) if p]
@@ -95,17 +104,38 @@ def _auto_macro_name(location: str, output_path: str, existing: set[str]) -> str
     if not candidate or candidate[0].isdigit():
         candidate = f"{stem}{candidate}"
     letters = re.sub(r"[^A-Za-z]", "", candidate)[:35]
+    stem_letters = re.sub(r"[^A-Za-z]", "", stem)[:30]
     if not letters:
-        letters = f"{stem}Value"[:35]
+        letters = f"{stem_letters}Value"[:35] if stem_letters else "Metric"
     if not letters:
         letters = "Metric"
     name = letters
-    counter = 1
-    while name in existing or not MACRO_NAME.fullmatch(name):
-        name = f"{letters[:30]}{counter}"
+    if name not in existing and MACRO_NAME.fullmatch(name):
+        existing.add(name)
+        return name
+
+    # Try qualifying with the output stem if not already prefixed
+    if stem and not name.startswith(stem):
+        stem_prefixed = re.sub(r"[^A-Za-z]", "", f"{stem}{name}")[:35]
+        if stem_prefixed and stem_prefixed not in existing and MACRO_NAME.fullmatch(stem_prefixed):
+            existing.add(stem_prefixed)
+            return stem_prefixed
+        base = stem_prefixed[:30] if stem_prefixed else name[:30]
+    else:
+        base = name[:30]
+
+    # Disambiguate with letter suffixes (B, C, D... then AA, AB...); bound loop
+    counter = 2
+    for _ in range(5000):
+        candidate_name = f"{base}{_int_to_letters(counter)}"
+        if candidate_name not in existing and MACRO_NAME.fullmatch(candidate_name):
+            existing.add(candidate_name)
+            return candidate_name
         counter += 1
-    existing.add(name)
-    return name
+
+    raise SciProofError(
+        f"unable to generate unique LaTeX macro name for {location} in {output_path}"
+    )
 
 
 def to_latex(manifest_path: Path | str, values: list[tuple[str, str, str]] | None = None) -> str:
@@ -138,7 +168,7 @@ def to_latex(manifest_path: Path | str, values: list[tuple[str, str, str]] | Non
             except (NumericFormatError, SciProofError, OSError):
                 continue
             for loc in leaves:
-                if loc.startswith("$#"):
+                if not location_matches_file(loc, out_path):
                     continue
                 macro_name = _auto_macro_name(loc, out_path, used_names)
                 auto_values.append((macro_name, out_path, loc))
