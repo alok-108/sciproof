@@ -96,6 +96,7 @@ class Check:
 class Report:
     name: str
     rerun_requested: bool
+    manifest_path: Path | None = None
     checks: list[Check] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     info: list[str] = field(default_factory=list)
@@ -881,7 +882,7 @@ def _verify(
     manifest_path = manifest_path.resolve()
     manifest = load_manifest(manifest_path)
     base = manifest_path.parent
-    report = Report(name=manifest["name"], rerun_requested=rerun)
+    report = Report(name=manifest["name"], rerun_requested=rerun, manifest_path=manifest_path)
 
     if allowed_signers is not None:
         _check_signature(manifest_path, Path(allowed_signers), report)
