@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from sciproof.numeric import NumericFormatError, compare, load_numeric
+from sciproof.numeric import (
+    MAX_REPORTED_DIFFERENCES,
+    NumericFormatError,
+    compare,
+    compare_detailed,
+    load_numeric,
+)
 
 np = pytest.importorskip("numpy")
 
@@ -78,3 +84,23 @@ def test_npz_decompressed_size_under_limit_still_loads(tmp_path):
     np.savez_compressed(path, a=np.zeros(1000, dtype=float))
     leaves = load_numeric(path)
     assert ("arrays", 1) in leaves
+
+
+def test_npz_many_differing_arrays_bounded_to_limit(tmp_path):
+    # Regression for #222: 20 differing arrays must be capped to MAX_REPORTED_DIFFERENCES + 1
+    # and scalar values must not print np.float64(...)
+    arrays_a = {f"k{i:02d}": np.arange(5.0) for i in range(20)}
+    arrays_b = {f"k{i:02d}": np.arange(5.0) + 1.0 for i in range(20)}
+    a = _save_npz(tmp_path / "a.npz", **arrays_a)
+    b = _save_npz(tmp_path / "b.npz", **arrays_b)
+
+    diffs = compare_detailed(a, b, rtol=0.0, atol=0.0)
+    assert len(diffs) <= MAX_REPORTED_DIFFERENCES + 1
+    assert len(diffs) == 11
+    # Verify plain numbers in messages without np.float64
+    assert "recorded 0.0, found 1.0" in diffs[0].message
+    assert "np.float64" not in diffs[0].message
+    # Summary entry states total count of differing values (100)
+    summary = diffs[-1]
+    assert summary.kind == "summary"
+    assert "100 values differ" in summary.message
