@@ -22,6 +22,17 @@ def test_recorded_environment_variables_are_listed(project):
     assert "variables:   CUDA_VISIBLE_DEVICES=0, OMP_NUM_THREADS=4" in describe(manifest)
 
 
+def test_recorded_lockfiles_are_listed(project):
+    manifest = _captured(project)
+    manifest["environment"]["lockfiles"] = [
+        {"path": "requirements.txt", "sha256": "3a1b2c3d4e5f67890123456789abcdef"},
+        {"path": "uv.lock", "sha256": "8c4d5e6f7a8b9c0d123456789abcdef0"},
+    ]
+    assert "lockfiles:   requirements.txt (3a1b2c3d...), uv.lock (8c4d5e6f...)" in describe(
+        manifest
+    )
+
+
 def test_a_manifest_without_git_metadata_says_not_recorded(project):
     manifest = _captured(project)
     manifest["git"] = None

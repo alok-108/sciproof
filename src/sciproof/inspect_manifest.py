@@ -57,6 +57,14 @@ def describe(manifest: dict[str, Any]) -> str:
                 f"{safe_text(k)}={safe_text(v, 80)}" for k, v in sorted(env["env_vars"].items())
             )
         )
+    lockfiles = env.get("lockfiles") or []
+    if lockfiles:
+        lines.append(
+            "  lockfiles:   "
+            + ", ".join(
+                f"{safe_text(lf['path'])} ({safe_text(lf['sha256'])[:8]}...)" for lf in lockfiles
+            )
+        )
     if git:
         state = "UNCOMMITTED CHANGES" if git["dirty"] else "clean"
         lines.append(f"  git:         {safe_text(git['commit'])[:12]} ({state})")
