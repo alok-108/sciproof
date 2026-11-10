@@ -110,3 +110,65 @@ def test_a_corrupt_manifest_is_a_clean_error(project, capsys):
     err = capsys.readouterr().err
     assert "not valid JSON" in err
     assert "Traceback" not in err
+
+
+def test_badge_with_policy_enforces_rules(project):
+    project.capture()
+    policy = project.root / "policy.toml"
+    policy.write_text(
+        'version = 1\n[outputs]\nrequire_numeric = ["missing.json"]\n', encoding="utf-8"
+    )
+    assert (
+        cli.main(["badge", project.manifest.name, "--policy", str(policy), "-o", "policy_fail.svg"])
+        == cli.EXIT_FAIL
+    )
+    svg = (project.root / "policy_fail.svg").read_text(encoding="utf-8")
+    assert "FAIL" in svg
+    assert "#cf222e" in svg
+
+
+def test_badge_with_allowed_signers_flags_unsigned_manifest(project):
+    project.capture()
+    signers = project.root / "allowed_signers"
+    signers.write_text("user@example.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... test\n")
+    assert (
+        cli.main(
+            [
+                "badge",
+                project.manifest.name,
+                "--allowed-signers",
+                str(signers),
+                "-o",
+                "inconclusive.svg",
+            ]
+        )
+        == cli.EXIT_INCONCLUSIVE
+    )
+    svg = (project.root / "inconclusive.svg").read_text(encoding="utf-8")
+    assert "INCONCLUSIVE" in svg
+    assert "#bf8700" in svg
+
+
+def test_badge_with_rerun_clean_env_and_pass_env(project, monkeypatch):
+    monkeypatch.setenv("SCIPROOF_TEST_VAR", "present")
+    project.capture()
+    assert (
+        cli.main(
+            [
+                "badge",
+                project.manifest.name,
+                "--rerun",
+                "--yes",
+                "--clean-env",
+                "--pass-env",
+                "SCIPROOF_TEST_VAR",
+                "--strict-env",
+                "-o",
+                "rerun_clean.svg",
+            ]
+        )
+        == cli.EXIT_OK
+    )
+    svg = (project.root / "rerun_clean.svg").read_text(encoding="utf-8")
+    assert "PASS" in svg
+    assert "rerun" in svg
