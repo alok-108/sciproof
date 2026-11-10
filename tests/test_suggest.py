@@ -193,3 +193,36 @@ def test_files_inside_virtualenvs_and_site_packages_are_never_suggested(tmp_path
     assert found.exit_code == 0
     assert found.inside == []
     assert found.outside == []
+
+
+# ------------------------------------------------------- simulated hook lines
+
+
+def test_an_unparseable_hook_line_is_skipped_without_crashing(tmp_path):
+    """A line in the audit log that is not valid hex is ignored, not a crash or a suggestion."""
+    (tmp_path / "run.py").write_text(
+        "import os\nopen(os.environ['SCIPROOF_AUDIT_LOG'], 'ab').write(b'not-a-hex-line\\n')\n"
+    )
+    found = suggest_inputs([sys.executable, "run.py"], tmp_path, ["run.py"])
+    assert found.exit_code == 0
+    assert found.inside == [] and found.outside == []
+
+
+def test_a_pyc_hook_line_is_reported_as_its_python_source(tmp_path):
+    """A ``__pycache__`` ``.pyc`` observation resolves to the ``.py`` the run depends on.
+
+    The line is fed to the audit log directly (the source is never imported or opened),
+    so the resolution is pinned without relying on import machinery internals.
+    """
+    pkg = tmp_path / "pkg"
+    (pkg / "__pycache__").mkdir(parents=True)
+    (pkg / "mymod.py").write_text("VALUE = 1\n")
+    pyc = pkg / "__pycache__" / "mymod.cpython-313.pyc"
+    (tmp_path / "run.py").write_text(
+        "import os\n"
+        f"open(os.environ['SCIPROOF_AUDIT_LOG'], 'ab').write("
+        f"os.fsencode({str(pyc)!r}).hex().encode() + b'\\n')\n"
+    )
+    found = suggest_inputs([sys.executable, "run.py"], tmp_path, ["run.py"])
+    assert found.exit_code == 0
+    assert found.inside == ["pkg/mymod.py"]
