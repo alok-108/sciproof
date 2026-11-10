@@ -1,6 +1,6 @@
 # Design note: exporting a manifest as an RO-Crate (Process Run Crate)
 
-Status: **research note, no code.** Discussion: issue #7.
+Status: **implemented in SciProof 0.5.0** via `sciproof export --format ro-crate`. See [docs/LIST_AND_EXPORT.md](LIST_AND_EXPORT.md).
 
 ## Why look at this
 

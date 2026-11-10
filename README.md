@@ -31,7 +31,7 @@ can later verify it with an explicit verdict: `PASS`, `FAIL` or `INCONCLUSIVE`.
 | --- | --- | --- |
 | Integrity | Are the files what was recorded? | SHA-256 checks |
 | Execution reproducibility | Does the command still produce the recorded results? | opt-in rerun; environment *differences are reported*, not fixed |
-| Numerical equivalence | Equal within a declared tolerance? | `--output-numeric` with `rtol`/`atol` for `.json`, `.csv`, `.tsv` and (with NumPy) `.npy` |
+| Numerical equivalence | Equal within a declared tolerance? | `--output-numeric` with `rtol`/`atol` for `.json`, `.csv`, `.tsv` and (with NumPy) `.npy`/`.npz` |
 | **Scientific validity** | **Is the result correct?** | **Not addressed. A reproducible result can still be wrong.** |
 
 Bitwise reproducibility across different hardware or platforms is **not** promised. Details in
@@ -297,7 +297,7 @@ Inputs, outputs (`result`, `report`) and the safety notes: [docs/CI.md](https://
 * Only declared files are tracked. Undeclared inputs, network, time and system libraries are
   invisible. SciProof reports environment differences but does not recreate environments.
 * stdout/stderr and the command line are stored in the manifest; review them for secrets.
-* Numeric comparison supports `.json`, `.csv` and `.tsv` (standard library only) and `.npy` arrays
+* Numeric comparison supports `.json`, `.csv` and `.tsv` (standard library only) and `.npy` arrays and `.npz` archives
   (`pip install 'sciproof[numpy]'`; numeric, boolean and complex dtypes, never unpickled).
 * The environment is probed from the command's interpreter only if the command is a Python
   interpreter; otherwise the interpreter running SciProof is described (and the manifest says so).
@@ -319,8 +319,10 @@ Full analysis, with what could not be confirmed: [docs/COMPETITIVE_ANALYSIS.md](
 Nothing below is promised. Each item is only worth doing if real users ask for it:
 
 1. Try it on real experiments of a few researchers; record what is awkward or missing.
-2. Based on that: more numeric formats (for example `.npz`) or a manifest export to RO-Crate for
-   interoperability. Directory inputs and exact directory outputs are already supported; see
+2. Based on that: additional domain-specific numeric formats (such as HDF5 or Zarr) or
+   export targets if researchers ask for them. Numeric comparison already supports `.npz` multi-array
+   archives (see [docs/COMPARISON.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/COMPARISON.md))
+   and exports support RO-Crate JSON-LD (see [docs/LIST_AND_EXPORT.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/LIST_AND_EXPORT.md)).
    [the manifest format](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/MANIFEST.md#directories).
 3. Add trusted timestamping only if users need it. Signing is already supported, but it does not
    establish when a manifest was signed; see [docs/SIGNING.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/SIGNING.md).

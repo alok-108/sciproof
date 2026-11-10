@@ -19,6 +19,14 @@ Check that an evidence manifest matches current outputs:
 sciproof verify baseline.sciproof.json
 ```
 
+* `--format {text,json,markdown,junit,sarif,html}`: Output format for the verification report (default: `text`).
+  * `text`: Human-readable summary and detailed checks.
+  * `json`: Machine-readable JSON report adhering to `sciproof.report` v1.0.
+  * `markdown`: GitHub-flavored Markdown suitable for `$GITHUB_STEP_SUMMARY`.
+  * `junit`: JUnit XML format for CI test runners.
+  * `sarif`: SARIF 2.1.0 format with rule IDs `SP001`-`SP003` for GitHub Code Scanning (see [docs/REPORT.md](REPORT.md#sarif-210-report)).
+  * `html`: Standalone, interactive HTML report with visual tolerance meters (see [docs/REPORT.md](REPORT.md#interactive-html-report)).
+
 With `--quiet` / `-q`, header banners and check lists are omitted, producing minimal output on
 `stdout`:
 
@@ -97,6 +105,37 @@ You can also profile concurrency drift across core counts:
 ```bash
 sciproof calibrate baseline.sciproof.json --threads 1,2,4,8 --yes
 ```
+
+
+
+### `capture`
+
+Run an experiment command and record an evidence manifest:
+
+```bash
+sciproof capture --name baseline \
+  --input data/input.csv \
+  --output-numeric out/metrics.json --rtol 1e-4 \
+  --output out/report.txt \
+  -- python experiment.py
+```
+
+### Glob patterns for inputs and outputs
+
+`capture` supports wildcard glob patterns for `--input`, `--output`, and `--output-numeric`:
+
+```bash
+sciproof capture --name experiment \
+  --input "data/**/*.csv" \
+  --output "out/tables/*.tsv" \
+  --output-numeric "out/models/*.npz" \
+  -- python train.py
+```
+
+* **Expansion at capture time**: Glob patterns are evaluated and expanded when `capture` runs. Matching files are recorded individually in the manifest. The manifest stores exact relative file paths, not unexpanded patterns.
+* **Safety rules**: Patterns must be relative to the workspace directory. Absolute patterns (starting with `/`) and directory traversals (`..`) are rejected with `UnsafePathError`.
+* **Regular files only**: Recursive globs (like `**/*`) match regular files only; directories matched by the pattern are dropped and not hashed as files. Directory symlinks are not traversed.
+* **Strict error on empty match**: If an input glob (`--input`) matches no files, `capture` aborts immediately with an error and writes no evidence. If an output glob (`--output` or `--output-numeric`) matches no files after execution, `capture` aborts with an error (exit code `3`) rather than creating a manifest claiming nonexistent outputs.
 
 ### `diff`
 

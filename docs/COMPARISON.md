@@ -74,6 +74,11 @@ Consequences worth knowing:
 * **`.npy` arrays** (needs the `numpy` extra): shape and dtype must match, then values are
   compared element-wise with the tolerance rule. Integer and boolean arrays are compared exactly.
   Object and string arrays are refused and pickles are never loaded.
+* **`.npz` archives** (needs the `numpy` extra): multi-array zip archives containing `.npy` arrays.
+  The set of array keys must match. For each array, shape and dtype must match, then values are
+  compared element-wise with the tolerance rule. Integer and boolean arrays are compared exactly.
+  Object and string arrays are refused and pickles are never loaded (`allow_pickle=False`). The 64 MiB
+  numeric comparison limit applies to the total decompressed array bytes.
 
 ## Where a difference is reported
 
@@ -82,6 +87,7 @@ Consequences worth knowing:
 | JSON | `$.key[index]` | `$.metrics.acc[1]: recorded 0.8, found 0.5 (rtol=1e-09, atol=0.0)` |
 | CSV / TSV | `rNcM` (row, column; row 0 is the first line), plus the column name from the first line | `r2c1 (column 'loss'): recorded 0.4, found 0.9 (...)` |
 | `.npy` | `data[i, j]` | `data[0, 1]: recorded 1.0, found 2.0 (...)` |
+| `.npz` | `key.shape`, `key.dtype`, or `key.data[i, j]` | `weights.data[0, 1]: recorded 1.0, found 2.0 (...)` |
 
 At most 10 differences are listed; the rest are summarised. A file that cannot be compared at
 all (invalid JSON, unsupported format, non-UTF-8 text, larger than 64 MiB) is reported as `FAIL`

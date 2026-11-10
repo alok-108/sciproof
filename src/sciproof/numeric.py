@@ -1,4 +1,4 @@
-"""Numerical comparison of JSON, CSV and TSV files with explicit tolerances.
+"""Numerical comparison of JSON, CSV, TSV, NPY and NPZ files with explicit tolerances.
 
 A value is compared as a number only if the file format says it is one (JSON numbers) or
 the whole CSV cell parses as a float. Everything else (strings, booleans, ``null``) must be
@@ -48,7 +48,10 @@ def _flatten_json(value: object, path: str, out: list[Leaf]) -> None:
 
 
 def load_numeric(path: Path) -> list[Leaf]:
-    """Parse a ``.json``, ``.csv``, ``.tsv`` or ``.npy`` file into ``(location, value)`` pairs."""
+    """Parse a numeric output file into ``(location, value)`` pairs.
+
+    Supports ``.json``, ``.csv``, ``.tsv``, ``.npy`` and ``.npz`` files.
+    """
     suffix = path.suffix.lower()
     if suffix not in SUPPORTED_SUFFIXES:
         raise NumericFormatError(

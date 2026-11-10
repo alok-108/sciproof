@@ -127,3 +127,65 @@ as evidence (a symbolic link inside) has a `problem` string instead.
 
 The report is a statement about the checks listed in it. It does not claim that the experiment
 as a whole is reproducible, and it is not signed.
+
+
+## SARIF 2.1.0 report
+
+`sciproof verify --format sarif` formats verification results as a [SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html) (Static Analysis Results Interchange Format) log. This format integrates directly with GitHub Code Scanning, Azure DevOps, and IDE security/diagnostic panels:
+
+```bash
+sciproof verify baseline.sciproof.json --format sarif -o results.sarif
+```
+
+### Rule taxonomy
+
+SARIF results map checks and warnings to standard rule IDs:
+
+| Rule ID | Rule Name | Default Level | Description |
+| --- | --- | --- | --- |
+| `SP001` | `VerificationFailure` | `error` | Emitted when any verification check contradicts recorded evidence (`FAIL`), such as modified/missing inputs or outputs, numeric differences exceeding tolerance, or violated claims. |
+| `SP002` | `VerificationInconclusive` | `warning` | Emitted when a check cannot be completed (`INCONCLUSIVE`), such as an unreadable file, missing snapshot, or declining a rerun. |
+| `SP003` | `VerificationWarning` | `warning` | Emitted for advisory verification warnings, such as an uncommitted dirty Git state, environment differences, or overly permissive tolerances (`rtol >= 1`). |
+
+### Location mapping
+
+Each result location in the SARIF document is resolved relative to the repository root:
+* Failures and inconclusive checks on inputs, outputs, or claims point directly to the affected file path (e.g. `data/input.csv` or `out/results.json`).
+* Warnings and checks without specific file evidence point to the manifest file itself.
+
+### GitHub Code Scanning integration
+
+In GitHub Actions workflows, upload the SARIF report to surface verification failures as inline code annotations and security tab alerts:
+
+```yaml
+- name: Verify experiment evidence (SARIF)
+  if: always()
+  run: sciproof verify baseline.sciproof.json --format sarif -o sciproof.sarif
+
+- name: Upload SARIF to GitHub Code Scanning
+  if: always()
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: sciproof.sarif
+    category: sciproof
+```
+
+## Interactive HTML report
+
+`sciproof verify --format html` produces a single, self-contained HTML report with interactive filtering and visual tolerance meters:
+
+```bash
+sciproof verify baseline.sciproof.json --format html -o report.html
+```
+
+### Key features
+
+* **Self-contained and zero-dependency**: All styles, icons, and client scripts are embedded inline in a single `.html` file. No internet connection, CDN, or external resources are needed to view it.
+* **Responsive dark and light modes**: Automatically detects the system's preferred color scheme (`prefers-color-scheme`).
+* **Interactive search and filtering**: Filter checks in real time by status (`PASS`, `FAIL`, `INCONCLUSIVE`) or search by text across check subjects and error messages.
+* **Visual tolerance meters**: For `--output-numeric` comparisons, the report renders a visual progress meter showing the ratio of actual difference to allowed tolerance (`abs_diff / allowed`). Differences close to or exceeding the threshold are highlighted with colored warning states.
+* **Detailed numeric difference tables**: Collapsible tables display up to 10 individual differences per numeric file, listing location (e.g. `$.metrics.accuracy` or `weights.data[0, 1]`), recorded value, found value, absolute difference, relative difference, and allowed margin.
+* **Execution metadata**: Displays run duration, exit code, warnings, notes, policy checks, and unverified scope limitations.
+
+To publish the HTML report as an artifact in GitHub Actions, see [docs/CI.md](CI.md#publishing-html-reports-as-artifacts).
+
