@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from sciproof.capture import DEFAULT_RTOL
 from sciproof.errors import ConfirmationRequired, UsageError
 from sciproof.hashing import sha256_file
 from sciproof.manifest import load_manifest
@@ -39,6 +40,7 @@ from sciproof.update import _backup_and_remove, _restore
 MIN_RUNS = 2
 MAX_RUNS = 50
 SAFETY_FACTOR = 10  # the suggested rtol is this many times the largest relative spread seen
+ATOL_SPREAD_THRESHOLD = 0.01  # absolute spread below which near-zero variation derives atol
 _EXACT_INT_LIMIT = 2**53  # integers up to here convert to float without losing anything
 
 
@@ -54,6 +56,7 @@ class OutputSpread:
     max_rel: float = 0.0
     suggestion: str | None = None
     suggested_rtol: float | None = None
+    suggested_atol: float | None = None
     mean_std: dict[str, tuple[float, float]] = field(default_factory=dict)
 
 
@@ -83,8 +86,13 @@ class CalibrationReport:
             }
             if output.mode == "numeric":
                 item.update(max_abs=output.max_abs, max_rel=output.max_rel)
-            if output.suggested_rtol is not None:
-                item["suggestion"] = {"rtol": output.suggested_rtol}
+            if output.suggested_rtol is not None or output.suggested_atol is not None:
+                suggestion_dict: dict[str, float] = {}
+                if output.suggested_rtol is not None:
+                    suggestion_dict["rtol"] = output.suggested_rtol
+                if output.suggested_atol is not None:
+                    suggestion_dict["atol"] = output.suggested_atol
+                item["suggestion"] = suggestion_dict
             if output.mean_std:
                 item["stats"] = {
                     loc: {"mean": mean, "std": std} for loc, (mean, std) in output.mean_std.items()
@@ -152,6 +160,80 @@ def _round_up(value: float) -> float:
     return math.ceil(value / step) * step
 
 
+def _expand(sample: list[Leaf]) -> list[Leaf]:
+    expanded: list[Leaf] = []
+    for location, value in sample:
+        if hasattr(value, "shape") and hasattr(value, "dtype"):
+            try:
+                import numpy as np
+            except ImportError:
+                expanded.append((location, value))
+                continue
+            array = np.asarray(value)
+            for index in np.ndindex(array.shape):
+                element = array[index]
+                expanded.append(
+                    (
+                        f"{location}{list(index)}",
+                        element.tolist() if hasattr(element, "tolist") else element,
+                    )
+                )
+        else:
+            expanded.append((location, value))
+    return expanded
+
+
+def derive_tolerances(
+    samples: list[list[Leaf]],
+) -> tuple[float | None, float | None]:
+    """Derive ``(suggested_rtol, suggested_atol)`` across ``samples``.
+
+    Leaves whose variation is tiny in absolute terms (``spread < ATOL_SPREAD_THRESHOLD``)
+    but large relative to their magnitude (or crossing/touching zero) are accounted
+    for with ``atol`` so that meaningless relative tolerances (``rtol >= 1``)
+    are avoided. Regular leaves contribute to ``rtol``.
+    """
+    tables = [dict(_expand(sample)) for sample in samples]
+    all_locations = sorted({loc for table in tables for loc in table})
+    relative_spreads: list[float] = []
+    near_zero_spreads: list[float] = []
+
+    for location in all_locations:
+        if any(location not in table for table in tables):
+            continue
+        values = [table[location] for table in tables]
+        numbers = [_number(v) for v in values]
+        if not all(n is not None for n in numbers):
+            continue
+        floats: list[float] = [n for n in numbers if n is not None]
+        if any(math.isnan(f) or math.isinf(f) for f in floats):
+            continue
+        low, high = min(floats), max(floats)
+        spread = high - low
+        if spread == 0.0:
+            continue
+        scale = max(abs(low), abs(high))
+        rel = spread / scale if scale > 0 else float("inf")
+
+        if (rel * SAFETY_FACTOR >= 0.1 or low * high <= 0) and spread < ATOL_SPREAD_THRESHOLD:
+            near_zero_spreads.append(spread)
+        else:
+            relative_spreads.append(rel)
+
+    suggested_rtol: float | None = None
+    suggested_atol: float | None = None
+
+    if relative_spreads:
+        suggested_rtol = max(DEFAULT_RTOL, _round_up(max(relative_spreads) * SAFETY_FACTOR))
+    elif near_zero_spreads:
+        suggested_rtol = DEFAULT_RTOL
+
+    if near_zero_spreads:
+        suggested_atol = _round_up(max(near_zero_spreads) * SAFETY_FACTOR)
+
+    return suggested_rtol, suggested_atol
+
+
 def _spread(samples: list[list[Leaf]], rtol: float, atol: float) -> tuple[float, float, int, str]:
     """``(max_abs, max_rel, outside, first_problem)`` over the numbers of ``samples``.
 
@@ -161,29 +243,6 @@ def _spread(samples: list[list[Leaf]], rtol: float, atol: float) -> tuple[float,
     comparing two arrays directly would raise an ambiguous-truth error, and
     their spread is the largest element-wise spread.
     """
-
-    def _expand(sample: list[Leaf]) -> list[Leaf]:
-        expanded: list[Leaf] = []
-        for location, value in sample:
-            if hasattr(value, "shape") and hasattr(value, "dtype"):
-                try:
-                    import numpy as np
-                except ImportError:
-                    expanded.append((location, value))
-                    continue
-                array = np.asarray(value)
-                for index in np.ndindex(array.shape):
-                    element = array[index]
-                    expanded.append(
-                        (
-                            f"{location}{list(index)}",
-                            element.tolist() if hasattr(element, "tolist") else element,
-                        )
-                    )
-            else:
-                expanded.append((location, value))
-        return expanded
-
     tables = [dict(_expand(sample)) for sample in samples]
     max_abs = max_rel = 0.0
     outside = 0
@@ -410,8 +469,18 @@ def _judge(
         return OutputSpread(path, "numeric", False, problem)
     if max_rel == 0.0:
         return OutputSpread(path, "numeric", True, "identical in every run and as recorded")
-    suggested_rtol = _round_up(max_rel * SAFETY_FACTOR) if outside else None
-    suggestion = f"--tolerance {path} 'rtol={suggested_rtol:.0e}'" if outside else None
+    suggested_rtol: float | None = None
+    suggested_atol: float | None = None
+    suggestion: str | None = None
+    if outside:
+        suggested_rtol, suggested_atol = derive_tolerances(samples)
+        parts: list[str] = []
+        if suggested_rtol is not None:
+            parts.append(f"rtol={suggested_rtol:.0e}")
+        if suggested_atol is not None:
+            parts.append(f"atol={suggested_atol:.0e}")
+        if parts:
+            suggestion = f"--tolerance {path} '{' '.join(parts)}'"
     detail = f"varies by up to {max_rel:.3g} relative ({max_abs:.3g} absolute)"
     mean_std = _compute_mean_std(samples)
     if outside:
@@ -425,6 +494,7 @@ def _judge(
             max_rel,
             suggestion,
             suggested_rtol,
+            suggested_atol=suggested_atol,
             mean_std=mean_std,
         )
     return OutputSpread(

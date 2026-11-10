@@ -328,3 +328,102 @@ def test_an_exact_output_differing_from_the_recording_is_not_ok(tmp_path):
     spread = _judge(tmp_path, item, ["new_hash", "new_hash"], [])
     assert not spread.ok
     assert spread.message == "identical in every run, but different from the recorded one"
+
+
+# ------------------------------------------------------- derive_tolerances & atol
+
+
+def test_derive_tolerances_near_zero():
+    from sciproof.calibrate import derive_tolerances
+    from sciproof.capture import DEFAULT_RTOL
+
+    samples = [[("bias", 3e-10)], [("bias", 5e-10)]]
+    suggested_rtol, suggested_atol = derive_tolerances(samples)
+    assert suggested_rtol == DEFAULT_RTOL
+    assert suggested_atol is not None and pytest.approx(suggested_atol) == 3e-09
+
+
+def test_derive_tolerances_sign_change_around_zero():
+    from sciproof.calibrate import derive_tolerances
+    from sciproof.capture import DEFAULT_RTOL
+
+    samples = [[("residual", -1e-12)], [("residual", 1e-12)]]
+    suggested_rtol, suggested_atol = derive_tolerances(samples)
+    assert suggested_rtol == DEFAULT_RTOL
+    assert suggested_rtol < 1
+    assert suggested_atol is not None and pytest.approx(suggested_atol) == 2e-11
+
+
+def test_derive_tolerances_mix_of_large_and_near_zero():
+    from sciproof.calibrate import derive_tolerances
+
+    samples = [
+        [("loss", 1.0), ("bias", 1e-9)],
+        [("loss", 1.0001), ("bias", 2e-9)],
+    ]
+    suggested_rtol, suggested_atol = derive_tolerances(samples)
+    assert suggested_rtol is not None and pytest.approx(suggested_rtol) == 1e-03
+    assert suggested_atol is not None and pytest.approx(suggested_atol) == 1e-08
+
+
+def test_calibrate_near_zero_values_suggests_atol(project, monkeypatch):
+    script = (
+        "import json, os, pathlib\n"
+        "p = pathlib.Path('count.txt')\n"
+        "n = len(p.read_text().splitlines()) if p.exists() else 0\n"
+        "open('count.txt', 'a').write('x\\n')\n"
+        "os.makedirs('out', exist_ok=True)\n"
+        "json.dump({'accuracy': 0.93, 'bias': (n + 1) * 1e-9}, open('out/m.json', 'w'))\n"
+    )
+    (project.root / "noisy.py").write_text(script)
+    (project.root / "count.txt").unlink(missing_ok=True)
+    project.capture(
+        argv=[sys.executable, "noisy.py"],
+        inputs=["noisy.py"],
+        outputs=[],
+        numeric_outputs=["out/m.json"],
+        rtol=1e-9,
+        atol=0.0,
+    )
+    (project.root / "count.txt").unlink(missing_ok=True)
+    report = calibrate(project.manifest, runs=3, assume_yes=True)
+    numeric = next(o for o in report.outputs if o.path == "out/m.json")
+    assert not numeric.ok
+    assert numeric.suggested_rtol is not None and numeric.suggested_rtol < 1
+    assert numeric.suggested_atol is not None and numeric.suggested_atol > 0
+    assert "atol=" in numeric.suggestion
+    assert "rtol=" in numeric.suggestion
+    data = report.to_dict()
+    out_dict = next(o for o in data["outputs"] if o["path"] == "out/m.json")
+    assert "atol" in out_dict["suggestion"]
+    assert "rtol" in out_dict["suggestion"]
+    assert out_dict["suggestion"]["rtol"] < 1
+
+
+def test_calibrate_sign_change_around_zero_never_suggests_rtol_ge_1(project, monkeypatch):
+    script = (
+        "import json, os, pathlib\n"
+        "p = pathlib.Path('count.txt')\n"
+        "n = len(p.read_text().splitlines()) if p.exists() else 0\n"
+        "open('count.txt', 'a').write('x\\n')\n"
+        "os.makedirs('out', exist_ok=True)\n"
+        "json.dump({'metric': (n - 0.5) * 1e-12}, open('out/m.json', 'w'))\n"
+    )
+    (project.root / "noisy.py").write_text(script)
+    (project.root / "count.txt").unlink(missing_ok=True)
+    project.capture(
+        argv=[sys.executable, "noisy.py"],
+        inputs=["noisy.py"],
+        outputs=[],
+        numeric_outputs=["out/m.json"],
+        rtol=1e-9,
+        atol=0.0,
+    )
+    (project.root / "count.txt").unlink(missing_ok=True)
+    report = calibrate(project.manifest, runs=3, assume_yes=True)
+    numeric = next(o for o in report.outputs if o.path == "out/m.json")
+    assert not numeric.ok
+    assert numeric.suggested_rtol is not None and numeric.suggested_rtol < 1
+    assert numeric.suggested_atol is not None and numeric.suggested_atol > 0
+    rtol_val = float(numeric.suggestion.split("rtol=")[1].split()[0].rstrip("'"))
+    assert rtol_val < 1

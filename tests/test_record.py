@@ -406,3 +406,78 @@ def test_second_run_failures_are_clean_capture_errors(lab, monkeypatch, failure,
     assert lab.runs() == 1  # the real discovery run completed before the failing second run
     assert not (lab.path / "exp.sciproof.json").exists()
     assert not (lab.path / "exp.sciproof.d").exists()
+
+
+# ------------------------------------------------------- near-zero atol derivation
+
+
+def test_record_near_zero_metrics_are_declared_numeric_with_atol(tmp_path, monkeypatch):
+    root = tmp_path / "lab"
+    root.mkdir()
+    counter = tmp_path / "count.txt"
+    monkeypatch.setenv("COUNT_FILE", str(counter))
+    script = (
+        "import json, os, pathlib\n"
+        "count_file = os.environ['COUNT_FILE']\n"
+        "n = len(open(count_file).read().splitlines()) if os.path.exists(count_file) else 0\n"
+        "open(count_file, 'a').write('x\\n')\n"
+        "pathlib.Path('out').mkdir(exist_ok=True)\n"
+        "json.dump({'accuracy': 0.93, 'bias': (n + 1) * 1e-9}, open('out/m.json', 'w'))\n"
+    )
+    (root / "run.py").write_text(script)
+    monkeypatch.chdir(root)
+    result = record(name="exp", argv=[sys.executable, "run.py"], base=root)
+    assert "out/m.json" in result.numeric
+    assert "out/m.json" not in [path for path, _ in result.excluded]
+    tol = result.tolerances["out/m.json"]
+    assert tol["rtol"] < 1
+    assert tol["atol"] > 0
+    assert verify_manifest(result.capture.manifest_path).status == Status.PASS
+
+
+def test_record_sign_change_around_zero_derives_atol_and_not_dropped(tmp_path, monkeypatch):
+    root = tmp_path / "lab"
+    root.mkdir()
+    counter = tmp_path / "count.txt"
+    monkeypatch.setenv("COUNT_FILE", str(counter))
+    script = (
+        "import json, os, pathlib\n"
+        "count_file = os.environ['COUNT_FILE']\n"
+        "n = len(open(count_file).read().splitlines()) if os.path.exists(count_file) else 0\n"
+        "open(count_file, 'a').write('x\\n')\n"
+        "pathlib.Path('out').mkdir(exist_ok=True)\n"
+        "json.dump({'metric': (n - 0.5) * 1e-12}, open('out/m.json', 'w'))\n"
+    )
+    (root / "run.py").write_text(script)
+    monkeypatch.chdir(root)
+    result = record(name="exp", argv=[sys.executable, "run.py"], base=root)
+    assert "out/m.json" in result.numeric
+    assert "out/m.json" not in [path for path, _ in result.excluded]
+    tol = result.tolerances["out/m.json"]
+    assert tol["rtol"] < 1
+    assert tol["atol"] > 0
+    assert verify_manifest(result.capture.manifest_path).status == Status.PASS
+
+
+def test_record_mix_of_large_and_near_zero_values(tmp_path, monkeypatch):
+    root = tmp_path / "lab"
+    root.mkdir()
+    counter = tmp_path / "count.txt"
+    monkeypatch.setenv("COUNT_FILE", str(counter))
+    script = (
+        "import json, os, pathlib\n"
+        "count_file = os.environ['COUNT_FILE']\n"
+        "n = len(open(count_file).read().splitlines()) if os.path.exists(count_file) else 0\n"
+        "open(count_file, 'a').write('x\\n')\n"
+        "pathlib.Path('out').mkdir(exist_ok=True)\n"
+        "d = {'loss': 1.0 + (n + 1) * 1e-5, 'bias': (n + 1) * 1e-9}\n"
+        "json.dump(d, open('out/m.json', 'w'))\n"
+    )
+    (root / "run.py").write_text(script)
+    monkeypatch.chdir(root)
+    result = record(name="exp", argv=[sys.executable, "run.py"], base=root)
+    assert "out/m.json" in result.numeric
+    tol = result.tolerances["out/m.json"]
+    assert 1e-5 <= tol["rtol"] < 1
+    assert tol["atol"] >= 1e-9
+    assert verify_manifest(result.capture.manifest_path).status == Status.PASS

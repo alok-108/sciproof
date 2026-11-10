@@ -48,6 +48,13 @@ instead of emitting non-standard JSON.
 ## How to read the suggestion
 
 The suggested `rtol` is **ten times the largest relative spread seen**, rounded up to one digit.
+When values are near zero (or cross/touch zero) and their relative spread would produce an
+inflated or meaningless relative tolerance (`rtol >= 0.1` while absolute spread is small,
+`spread < 0.01`), `calibrate` derives an absolute tolerance `atol` (ten times the absolute spread,
+rounded up to one digit) instead of inflating `rtol`. The suggestion then specifies both
+(e.g. `--tolerance out/m.json 'rtol=1e-09 atol=1e-08'`), and the JSON report includes
+`suggestion.atol`.
+
 A handful of runs only samples the noise: a longer run, another machine or another day can vary
 more. Treat the suggestion as a starting point, capture again with it (`--tolerance`, see
 [Numeric comparison](COMPARISON.md)), and run `calibrate` once more on the machine where the
