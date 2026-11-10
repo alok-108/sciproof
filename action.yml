@@ -30,15 +30,19 @@ inputs:
     default: "."
   install:
     description: >-
-      Install SciProof from PyPI (and set up Python). Set to "false" if the job has already
-      installed it.
+      Install SciProof from PyPI (and set up Python if python-version is given). Set to "false" if the job has already
+      installed it. When rerun: true and your job prepared its own environment (virtualenv, Python version, dependencies),
+      install SciProof into that environment and set install: "false" so this action does not switch the interpreter.
     default: "true"
+  extras:
+    description: "Optional extras to install with SciProof, for example 'numpy' to compare .npy/.npz outputs."
+    default: ""
   version:
     description: "SciProof version to install, for example 0.6.0 (this action needs 0.3.0 or later). Empty means the latest release."
     default: ""
   python-version:
-    description: "Python version to set up when install is true."
-    default: "3.12"
+    description: "Python version to set up when install is true. Empty means use the job's existing Python without switching interpreters."
+    default: ""
 
 outputs:
   result:
@@ -52,7 +56,7 @@ runs:
   using: "composite"
   steps:
     - name: Set up Python
-      if: inputs.install == 'true'
+      if: inputs.install == 'true' && inputs.python-version != ''
       uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
       with:
         python-version: ${{ inputs.python-version }}
@@ -62,12 +66,16 @@ runs:
       shell: bash
       env:
         VERSION: ${{ inputs.version }}
+        EXTRAS: ${{ inputs.extras }}
       run: |
-        if [ -n "$VERSION" ]; then
-          python -m pip install --quiet --disable-pip-version-check "sciproof==$VERSION"
-        else
-          python -m pip install --quiet --disable-pip-version-check sciproof
+        pkg="sciproof"
+        if [ -n "$EXTRAS" ]; then
+          pkg="sciproof[$EXTRAS]"
         fi
+        if [ -n "$VERSION" ]; then
+          pkg="${pkg}==$VERSION"
+        fi
+        python -m pip install --quiet --disable-pip-version-check "$pkg"
         sciproof --version
 
     - name: Verify
