@@ -226,3 +226,60 @@ def test_a_pyc_hook_line_is_reported_as_its_python_source(tmp_path):
     found = suggest_inputs([sys.executable, "run.py"], tmp_path, ["run.py"])
     assert found.exit_code == 0
     assert found.inside == ["pkg/mymod.py"]
+
+
+def test_suggest_inputs_chains_to_existing_sitecustomize(tmp_path, monkeypatch):
+    """The injected sitecustomize must chain to any pre-existing sitecustomize on PYTHONPATH."""
+    import os
+
+    site_dir = tmp_path / "site"
+    site_dir.mkdir()
+    (site_dir / "sitecustomize.py").write_text(
+        "import builtins\nbuiltins.PROJECT_SETUP = 'done'\n", encoding="utf-8"
+    )
+    (tmp_path / "data.txt").write_text("hello\n", encoding="utf-8")
+    (tmp_path / "run.py").write_text(
+        "import builtins, json\n"
+        "data = open('data.txt').read()\n"
+        "setup = getattr(builtins, 'PROJECT_SETUP', 'missing')\n"
+        "json.dump({'setup': setup, 'data': data}, open('out.json', 'w'))\n",
+        encoding="utf-8",
+    )
+    existing = os.environ.get("PYTHONPATH")
+    monkeypatch.setenv("PYTHONPATH", str(site_dir) + (os.pathsep + existing if existing else ""))
+
+    found = suggest_inputs([sys.executable, "run.py"], tmp_path, ["run.py"])
+    assert found.exit_code == 0
+    assert "data.txt" in found.inside
+    import json
+
+    output = json.loads((tmp_path / "out.json").read_text(encoding="utf-8"))
+    assert output["setup"] == "done"
+
+
+def test_record_with_existing_sitecustomize_declares_outputs_stable(tmp_path, monkeypatch):
+    """record run 1 (with hook) and run 2 (without) both execute user sitecustomize."""
+    import json
+    import os
+
+    from sciproof.record import record
+
+    site_dir = tmp_path / "site"
+    site_dir.mkdir()
+    (site_dir / "sitecustomize.py").write_text(
+        "import builtins\nbuiltins.PROJECT_SETUP = 'done'\n", encoding="utf-8"
+    )
+    (tmp_path / "run.py").write_text(
+        "import builtins, json\n"
+        "setup = getattr(builtins, 'PROJECT_SETUP', 'missing')\n"
+        "json.dump({'setup': setup}, open('out.json', 'w'))\n",
+        encoding="utf-8",
+    )
+    existing = os.environ.get("PYTHONPATH")
+    monkeypatch.setenv("PYTHONPATH", str(site_dir) + (os.pathsep + existing if existing else ""))
+
+    result = record(name="exp", argv=[sys.executable, "run.py"], base=tmp_path)
+    assert "out.json" in (result.exact + result.numeric)
+    assert not any(path == "out.json" for path, _ in result.excluded)
+    output = json.loads((tmp_path / "out.json").read_text(encoding="utf-8"))
+    assert output["setup"] == "done"

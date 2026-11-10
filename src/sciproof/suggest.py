@@ -49,6 +49,20 @@ if _log:
         except Exception:
             pass
     sys.addaudithook(_hook)
+
+# Chain to the original or next sitecustomize on sys.path if one exists:
+_this_dir = os.path.normcase(os.path.abspath(os.path.dirname(__file__)))
+_saved_sys_path = sys.path[:]
+_saved_module = sys.modules.get("sitecustomize")
+try:
+    sys.path[:] = [p for p in sys.path if os.path.normcase(os.path.abspath(p)) != _this_dir]
+    sys.modules.pop("sitecustomize", None)
+    import sitecustomize
+except ImportError:
+    if _saved_module is not None:
+        sys.modules["sitecustomize"] = _saved_module
+finally:
+    sys.path[:] = _saved_sys_path
 """
 
 _IGNORED_PARTS = {"__pycache__", ".git", ".hg", ".venv", "venv", "site-packages"}
