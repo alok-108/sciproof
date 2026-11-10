@@ -222,4 +222,37 @@ tampered output, and installed from PyPI).
 the team's requirements ("signed, clean tree, evidence not older than 30 days") into checks that fail
 the build with a reason.
 
+## Pytest plugin in CI
+
+SciProof includes a pytest plugin (registered under the `pytest11` entry point as `sciproof`).
+Run pytest with `--sciproof` to discover and verify all `*.sciproof.json` manifests in your test tree:
+
+```bash
+pytest --sciproof
+```
+
+When re-executing recorded commands during tests (`--sciproof-rerun`):
+
+> [!WARNING]
+> `--sciproof-rerun` **executes the recorded commands** without interactive confirmation.
+> By default, verification inherits pytest's environment unless `--sciproof-clean-env` is passed.
+> In CI, always use `--sciproof-clean-env` to avoid credential exposure, and only run against trusted
+> manifests from your team.
+
+```bash
+pytest --sciproof --sciproof-rerun --sciproof-clean-env
+```
+
+Available flags (and their `pytest.ini` / `pyproject.toml` equivalents):
+
+| Flag | INI option | Description |
+| --- | --- | --- |
+| `--sciproof` | `sciproof = true` | Discover and verify `*.sciproof.json` manifests as pytest test items |
+| `--sciproof-rerun` | `sciproof_rerun = true` | Re-execute recorded manifest commands |
+| `--sciproof-clean-env` | `sciproof_clean_env = true` | Run rerun command with a minimal clean environment |
+| `--sciproof-pass-env NAME` | `sciproof_pass_env = NAME ...` | Environment variable to pass through with clean env (repeatable) |
+| `--sciproof-timeout SEC` | `sciproof_timeout = SEC` | Rerun timeout in seconds |
+| `--sciproof-policy FILE` | `sciproof_policy = FILE` | Policy file (TOML) to check |
+| `--sciproof-allowed-signers FILE` | `sciproof_allowed_signers = FILE` | OpenSSH allowed-signers file |
+
 Details: [Security and threat model](../SECURITY.md).
