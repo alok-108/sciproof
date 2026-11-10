@@ -134,3 +134,40 @@ def test_pytest_item_direct_run_fail(project, monkeypatch):
     item = file_item.collect()[0]
     with pytest.raises(pytest.fail.Exception):
         item.runtest()
+
+
+def test_pytest_item_direct_run_corrupt_manifest(project):
+    bad_manifest = project.root / "corrupt.sciproof.json"
+    bad_manifest.write_text("{ corrupt json", encoding="utf-8")
+
+    session = MagicMock()
+    session.config.getoption.return_value = False
+    file_item = SciProofFile.from_parent(session, path=bad_manifest)
+    item = file_item.collect()[0]
+    with pytest.raises(pytest.fail.Exception) as exc_info:
+        item.runtest()
+    assert "SciProof manifest verification error" in str(exc_info.value)
+
+
+def test_pytest_plugin_corrupt_manifest_reported_as_failure(project):
+    bad_manifest = project.root / "corrupt.sciproof.json"
+    bad_manifest.write_text("{ corrupt json", encoding="utf-8")
+
+    cmd = [
+        sys.executable,
+        "-m",
+        "pytest",
+        "-o",
+        "addopts=",
+        "-p",
+        "sciproof.pytest_plugin",
+        "-p",
+        "no:sciproof",
+        "--sciproof",
+        str(bad_manifest),
+    ]
+    res = subprocess.run(cmd, cwd=project.root, capture_output=True, text=True, check=False)
+    assert res.returncode != 0
+    assert "1 failed" in res.stdout
+    assert "1 error" not in res.stdout
+    assert "SciProof manifest verification error" in res.stdout

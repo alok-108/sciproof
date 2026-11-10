@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from sciproof.errors import SciProofError
 from sciproof.verify import Status, verify
 
 if TYPE_CHECKING:
@@ -51,7 +52,10 @@ class SciProofItem(pytest.Item):
 
         rerun = bool(self.config.getoption("--sciproof-rerun", False))
 
-        report = verify(self.path, rerun=rerun, assume_yes=True)
+        try:
+            report = verify(self.path, rerun=rerun, assume_yes=True)
+        except SciProofError as exc:
+            pytest.fail(f"SciProof manifest verification error: {exc}", pytrace=False)
 
         if report.status == Status.PASS:
             return
