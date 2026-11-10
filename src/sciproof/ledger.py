@@ -168,17 +168,20 @@ def format_markdown(entries: list[Entry], checked: bool) -> str:
     lines = ["## SciProof manifests", "", f"> {escape(summary(entries, checked))}", ""]
     if entries:
         lines += [
-            "| File | Name | Captured | Exit | Git | Signed | Result |",
-            "| --- | --- | --- | --- | --- | --- | --- |",
+            "| File | Name | Captured | Exit | Git | Signed | Result | Note |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
         for e in entries:
             if e.error:
-                lines.append(f"| {escape(e.file)} | | | | | | INVALID: {escape(e.error)} |")
+                lines.append(f"| {escape(e.file)} | | | | | | INVALID: {escape(e.error)} | |")
                 continue
             git = f"{e.commit}{' (dirty)' if e.dirty else ''}" if e.commit else "-"
+            note = escape(e.note) if e.note else "-"
+            signed = "yes" if e.signed else "no"
+            verdict = escape(e.verdict or "-")
             lines.append(
                 f"| {escape(e.file)} | {escape(e.name)} | {escape(e.created_at)} | {e.exit_code} "
-                f"| {escape(git)} | {'yes' if e.signed else 'no'} | {escape(e.verdict or '-')} |"
+                f"| {escape(git)} | {signed} | {verdict} | {note} |"
             )
     lines.append("")
     return "\n".join(lines)
