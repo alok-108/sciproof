@@ -205,12 +205,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     {warnings_section}
 
-    <div class="card">
-      <h2>Not Checked by Design</h2>
-      <ul class="check-list">
-        {not_checked_items}
-      </ul>
-    </div>
+    {notes_section}
+
+    {not_checked_section}
 
     <footer>
       Verified by
@@ -384,12 +381,29 @@ def report_html(report: Report) -> str:
         warn_items = "".join(f"<li>{html.escape(safe_text(w, 500))}</li>" for w in report.warnings)
         warnings_section = (
             f'<div class="card" style="border-left: 4px solid var(--inc);">'
-            f"<h2>Warnings</h2><ul>{warn_items}</ul></div>"
+            f'<h2>Warnings</h2><ul class="check-list">{warn_items}</ul></div>'
         )
 
-    not_checked_items = "".join(
-        f"<li>{html.escape(safe_text(item, 500))}</li>" for item in report.not_checked
-    )
+    notes_section = ""
+    notes = list(report.info)
+    if report.rerun_outputs_dir:
+        notes.append(f"files produced by the rerun were moved to {report.rerun_outputs_dir}/")
+    if notes:
+        note_items = "".join(f"<li>{html.escape(safe_text(n, 1000))}</li>" for n in notes)
+        notes_section = (
+            f'<div class="card" id="notes">'
+            f'<h2>Notes</h2><ul class="check-list">{note_items}</ul></div>'
+        )
+
+    not_checked_section = ""
+    if report.not_checked:
+        not_checked_items = "".join(
+            f"<li>{html.escape(safe_text(item, 1000))}</li>" for item in report.not_checked
+        )
+        not_checked_section = (
+            f'<div class="card" id="not-checked">'
+            f'<h2>Not checked</h2><ul class="check-list">{not_checked_items}</ul></div>'
+        )
 
     numeric_tables, script_block = _render_numeric_section(report)
 
@@ -407,7 +421,8 @@ def report_html(report: Report) -> str:
         rows="\n".join(rows),
         numeric_tables=numeric_tables,
         warnings_section=warnings_section,
-        not_checked_items=not_checked_items,
+        notes_section=notes_section,
+        not_checked_section=not_checked_section,
         script_block=script_block,
     )
 
