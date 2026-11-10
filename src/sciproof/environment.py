@@ -266,9 +266,14 @@ def interpreter_info(argv0: str, cwd: Path) -> tuple[dict[str, Any], str]:
     Returns ``(info, source)`` where source is ``"command-interpreter"`` or
     ``"sciproof-process"``.
     """
-    resolved = shutil.which(argv0, path=None) if _looks_like_python(argv0) else None
-    if resolved is None and _looks_like_python(argv0) and Path(argv0).exists():
-        resolved = argv0
+    resolved = None
+    if _looks_like_python(argv0):
+        candidate = (cwd / argv0) if not Path(argv0).is_absolute() else Path(argv0)
+        resolved = shutil.which(str(candidate))
+        if resolved is None and candidate.is_file():
+            resolved = str(candidate)
+        if resolved is None:
+            resolved = shutil.which(argv0, path=None)
     if resolved is not None:
         try:
             completed = subprocess.run(  # noqa: S603
