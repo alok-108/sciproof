@@ -7,7 +7,7 @@ import os
 import shutil
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from sciproof import __version__
@@ -118,17 +118,28 @@ def _refuse_evidence_paths(declared: list[str], name: str) -> None:
             )
 
 
+def _matches_glob_pattern(relative: str, pattern: str) -> bool:
+    clean_pat = pattern.replace("\\", "/").removeprefix("./")
+    return PurePosixPath(relative).match(clean_pat)
+
+
 def _parse_claims(
-    base: Path, claims: list[tuple[str, str]], output_paths: list[str]
+    base: Path,
+    claims: list[tuple[str, str]],
+    output_paths: list[str],
+    output_globs: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Turn ``(output, expression)`` pairs into manifest claims on declared outputs."""
     records: list[dict[str, Any]] = []
+    output_globs = output_globs or []
     for output, expression in claims:
         try:
             relative = to_manifest_path(base, output)
         except UnsafePathError as exc:
             raise CaptureError(str(exc)) from exc
-        if relative not in output_paths:
+        if relative not in output_paths and not any(
+            _matches_glob_pattern(relative, pat) for pat in output_globs
+        ):
             raise CaptureError(
                 f"claim on {output!r}: the file must be declared with --output or --output-numeric"
             )
@@ -254,14 +265,18 @@ def capture(
         except UnsafePathError as exc:
             raise CaptureError(str(exc)) from exc
     for relative in tolerance_by_path:
-        if relative not in numeric_paths:
+        if relative not in numeric_paths and not any(
+            _matches_glob_pattern(relative, pat) for pat in numeric_glob_patterns
+        ):
             raise CaptureError(
                 f"tolerance for {relative!r}: the file must be declared with --output-numeric"
             )
     _unique(input_paths, "--input")
     _unique(exact_paths + numeric_paths, "--output/--output-numeric")
     _refuse_evidence_paths(input_paths + exact_paths + numeric_paths, name)
-    claim_records = _parse_claims(base, claims or [], exact_paths + numeric_paths)
+    claim_records = _parse_claims(
+        base, claims or [], exact_paths + numeric_paths, exact_glob_patterns + numeric_glob_patterns
+    )
     if note is not None and (not note.strip() or len(note) > MAX_NOTE_LENGTH or "\x00" in note):
         raise CaptureError(
             f"the note must be 1 to {MAX_NOTE_LENGTH} characters of text (no NUL bytes)"
@@ -365,6 +380,28 @@ def capture(
     numeric_paths = list(dict.fromkeys(numeric_paths))
     _unique(exact_paths + numeric_paths, "--output/--output-numeric")
     _refuse_evidence_paths(exact_paths + numeric_paths, name)
+    overlap = set(input_paths) & set(exact_paths + numeric_paths)
+    if overlap:
+        raise CaptureError(f"a file cannot be both input and output: {sorted(overlap)[0]}")
+    for relative in input_paths + exact_paths + numeric_paths:
+        for directory in input_directories:
+            if relative != directory and relative.startswith(directory + "/"):
+                raise CaptureError(
+                    f"{relative!r} lies inside the declared input directory {directory!r}; "
+                    "declare either the directory or the file"
+                )
+    for relative in tolerance_by_path:
+        if relative not in numeric_paths:
+            raise CaptureError(
+                f"tolerance for {relative!r}: the file was not matched by any "
+                "--output-numeric declaration"
+            )
+    for claim in claim_records:
+        if claim["output"] not in (exact_paths + numeric_paths):
+            raise CaptureError(
+                f"claim on {claim['output']!r}: the file was not matched by any "
+                "--output or --output-numeric declaration"
+            )
 
     # Snapshots are written to a staging directory and only replace the old ones once the new
     # manifest has been written, so a failed capture never damages earlier evidence and
