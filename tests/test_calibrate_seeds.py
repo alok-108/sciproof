@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import sys
 
+import pytest
+
 from sciproof import cli
 from sciproof.calibrate import calibrate
 
@@ -81,8 +83,43 @@ def test_calibrate_invalid_seeds_reports_usage_error(project, capsys):
     manifest = project.root / "nonexistent.sciproof.json"
     code = cli.main(["calibrate", str(manifest), "--seeds", "42", "--yes"])
     assert code == cli.EXIT_ERROR
-    assert "at least 2 seeds" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "at least 2 seeds" in err
+    assert "--seeds" in err
+    assert "--runs" not in err
 
     code = cli.main(["calibrate", str(manifest), "--seeds", "not_a_number", "--yes"])
     assert code == cli.EXIT_ERROR
     assert "comma-separated list of integers" in capsys.readouterr().err
+
+    too_many = ",".join(str(i) for i in range(51))
+    code = cli.main(["calibrate", str(manifest), "--seeds", too_many, "--yes"])
+    assert code == cli.EXIT_ERROR
+    err = capsys.readouterr().err
+    assert "cannot specify more than 50 seeds" in err
+    assert "--seeds" in err
+
+
+def test_calibrate_conflicting_seeds_and_runs_rejected(project, capsys):
+    manifest = project.root / "nonexistent.sciproof.json"
+    code = cli.main(["calibrate", str(manifest), "--seeds", "1,2,3", "--runs", "10", "--yes"])
+    assert code == cli.EXIT_ERROR
+    err = capsys.readouterr().err
+    assert "conflicting options: --runs (10) does not match number of seeds (3)" in err
+
+
+def test_calibrate_python_api_validates_seeds_and_conflicts(project):
+    from sciproof.errors import UsageError
+
+    manifest = project.root / "nonexistent.sciproof.json"
+    with pytest.raises(UsageError, match="--seeds must specify at least 2 seeds"):
+        calibrate(manifest, seeds=[42], assume_yes=True)
+
+    with pytest.raises(UsageError, match="--seeds cannot specify more than 50 seeds"):
+        calibrate(manifest, seeds=list(range(51)), assume_yes=True)
+
+    with pytest.raises(
+        UsageError,
+        match=r"conflicting options: --runs \(10\) does not match number of seeds \(3\)",
+    ):
+        calibrate(manifest, runs=10, seeds=[1, 2, 3], assume_yes=True)
