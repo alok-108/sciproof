@@ -148,6 +148,34 @@ def test_markdown_escapes_file_names_and_errors():
     assert "a\\|b&lt;script&gt;" in text
 
 
+def test_markdown_includes_note_column():
+    entry_with_note = Entry(
+        file="exp1.sciproof.json",
+        name="exp1",
+        created_at="2026-11-10",
+        exit_code=0,
+        note="baseline run with lr=0.01 | important",
+    )
+    entry_without_note = Entry(
+        file="exp2.sciproof.json",
+        name="exp2",
+        created_at="2026-11-10",
+        exit_code=0,
+    )
+    invalid_entry = Entry(file="corrupt.sciproof.json", error="bad manifest")
+
+    text = format_markdown([entry_with_note, entry_without_note, invalid_entry], False)
+
+    assert "| File | Name | Captured | Exit | Git | Signed | Result | Note |" in text
+    assert "| --- | --- | --- | --- | --- | --- | --- | --- |" in text
+    # Note with pipe character properly escaped
+    assert "baseline run with lr=0.01 \\| important" in text
+    # No note displays as '-'
+    assert "| exp2.sciproof.json | exp2 | 2026-11-10 | 0 | - | no | - | - |" in text
+    # Invalid entry maintains table column count
+    assert "| corrupt.sciproof.json | | | | | | INVALID: bad manifest | |" in text
+
+
 # ---------------------------------------------------------- formatting tests
 
 
