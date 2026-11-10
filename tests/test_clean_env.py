@@ -173,6 +173,19 @@ def test_names_are_matched_case_insensitively_on_windows():
     assert environment == {"MyVar": "1", "Path": "C:\\x"}
 
 
+def test_clean_environment_case_folding_and_deduplication():
+    source = {"Path": "C:\\Windows", "MY_VAR": "val"}
+    if sys.platform == "win32":
+        env, unset = clean_environment(["path", "Path", "my_var", "UNSET", "unset"], environ=source)
+        assert env["Path"] == "C:\\Windows"
+        assert env["MY_VAR"] == "val"
+        assert unset == ["UNSET"]
+    else:
+        env, unset = clean_environment(["WANTED", "wanted"], environ={"WANTED": "1", "wanted": "2"})
+        assert env["WANTED"] == "1"
+        assert env["wanted"] == "2"
+
+
 # ---------------------------------------------------------------- command line
 
 

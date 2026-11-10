@@ -187,14 +187,20 @@ def recorded_env_vars(
     (containing TOKEN, SECRET, KEY or PASSWORD). Duplicates are ignored.
     """
     environ = os.environ if environ is None else environ
+    fold = (lambda text: text.upper()) if sys.platform == "win32" else (lambda text: text)
+    available = {fold(key): key for key in environ}
+    seen = set()
     result: dict[str, str | None] = {}
     for name in names:
         if not _ENV_NAME.fullmatch(name):
             raise UsageError(f"{name!r} is not a valid environment variable name")
         if any(part in name.upper() for part in _SECRET_NAME_PARTS):
             raise UsageError(f"refusing to record {name!r}: it looks like it could hold a secret")
-        if name not in result:
-            result[name] = environ.get(name)
+        folded = fold(name)
+        if folded not in seen:
+            seen.add(folded)
+            actual_key = available.get(folded)
+            result[name] = environ[actual_key] if actual_key is not None else None
     return result
 
 
@@ -214,20 +220,33 @@ def clean_environment(
     matched case-insensitively on Windows, where variable names are case-insensitive.
     """
     source = os.environ if environ is None else environ
-    wanted = list(CLEAN_ENV_BASE) + list(ENV_ALLOWLIST)
-    explicit = []
+    fold = (lambda text: text.upper()) if sys.platform == "win32" else (lambda text: text)
+    available = {fold(key): key for key in source}
+
+    seen_explicit = set()
+    explicit: list[str] = []
     for name in extra:
         if not _ENV_NAME.fullmatch(name):
             raise UsageError(f"{name!r} is not a valid environment variable name")
-        explicit.append(name)
-    wanted += explicit
-    fold = (lambda text: text.upper()) if sys.platform == "win32" else (lambda text: text)
-    available = {fold(key): key for key in source}
+        folded = fold(name)
+        if folded not in seen_explicit:
+            seen_explicit.add(folded)
+            explicit.append(name)
+
+    seen_wanted = set()
+    wanted: list[str] = []
+    for name in list(CLEAN_ENV_BASE) + list(ENV_ALLOWLIST) + explicit:
+        folded = fold(name)
+        if folded not in seen_wanted:
+            seen_wanted.add(folded)
+            wanted.append(name)
+
     result: dict[str, str] = {}
     for name in wanted:
         key = available.get(fold(name))
         if key is not None:
             result[key] = source[key]
+
     unset = [name for name in explicit if fold(name) not in available]
     return result, unset
 
