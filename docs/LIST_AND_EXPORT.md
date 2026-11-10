@@ -99,8 +99,23 @@ This is **lineage only**: which files were read and written, and whether the com
 carries no hashes and no verdict, because no standard facet for them was verified; use the in-toto
 export or the manifest for that.
 
-An export to RO-Crate (Process Run Crate) is not implemented; see the
-[design note](DESIGN_RO_CRATE.md) for the open questions.
+## `--format ro-crate`: Workflow Run RO-Crate
+
+Export the manifest to [RO-Crate](https://www.researchobject.org/ro-crate/) (conforming to the [Process Run Crate 0.6](https://w3id.org/ro/wfrun/process/0.6) profile):
+
+```bash
+sciproof export baseline.sciproof.json --format ro-crate -o ro-crate-metadata.json
+```
+
+The output is a single JSON-LD file (`@context: "https://w3id.org/ro/crate/1.1/context"`) describing the experiment run:
+
+* **Root Dataset (`@id: "./"`)**: Declares `@type: "Dataset"` and conforms to the `https://w3id.org/ro/wfrun/process/0.6` profile. It mentions the `#run` execution action and includes all declared inputs and outputs in `hasPart`.
+* **Metadata Descriptor (`@id: "ro-crate-metadata.json"`)**: Identifies the metadata document and its conformance to `https://w3id.org/ro/crate/1.1`.
+* **Execution Action (`@id: "#run"`)**: A `CreateAction` recording the command (`description`), approximate start and end timestamps (`startTime`, `endTime`), execution outcome (`actionStatus`: `CompletedActionStatus` or `FailedActionStatus`), captured environment variables as `PropertyValue` entities, declared inputs in `object`, and declared outputs in `result`.
+* **Instrument (`@id: "#tool"`)**: A `SoftwareApplication` entity identifying `sciproof` and its version.
+* **Files and Datasets**: Each input and output file is represented as an entity with `@type: "File"` (or `@type: "Dataset"` for directories), including its relative path, `contentSize` (in bytes), and `sha256` digest.
+
+Note that RO-Crate is a descriptive provenance and metadata interchange format; it records what was executed and preserves cryptographic digests for external platforms, but does not embed SciProof-specific tolerance rules or claim verification verdicts (see [DESIGN_RO_CRATE.md](DESIGN_RO_CRATE.md)).
 
 ## `--format dsse`: in-toto Statement in DSSE envelope
 

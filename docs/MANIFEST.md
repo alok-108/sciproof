@@ -81,7 +81,7 @@ Every field of a manifest. Array entries are written as `[]`.
 | `outputs[].size` | Size in bytes (of a directory: the sum of its files). |
 | `outputs[].kind` | `file` (default) or `directory` (schema 1.1). A directory is always compared `exact`. |
 | `outputs[].files` | Directories only, as for inputs; empty or absent when the output was not present. |
-| `outputs[].compare` | How a rerun is compared with this output: `exact` (hash) or `numeric` (tolerance for `.json`, `.csv`, `.tsv`, `.npy`). |
+| `outputs[].compare` | How a rerun is compared with this output: `exact` (hash) or `numeric` (tolerance for `.json`, `.csv`, `.tsv`, `.npy`, `.npz`). |
 | `outputs[].compare.mode` | `exact` or `numeric`. |
 | `outputs[].compare.rtol` | Relative tolerance of a numeric output. |
 | `outputs[].compare.atol` | Absolute tolerance of a numeric output. |
@@ -159,7 +159,7 @@ list of the regular files below it:
   must be read-only; declare a more specific directory or set `PYTHONDONTWRITEBYTECODE=1`.
 * A declared file may not lie inside a declared directory, and the manifest, its snapshot
   directory (`NAME.sciproof.d/`) and the rerun directories cannot be declared.
-* Directories cannot be compared numerically (`--output-numeric`). Single `.json`, `.csv`, `.tsv` or `.npy` files only.
+* Directories cannot be compared numerically (`--output-numeric`). Single `.json`, `.csv`, `.tsv`, `.npy` or `.npz` files only.
 * Verification reports which files were **added, removed or modified**, by name.
 * A `kind` field in a manifest whose `schema_version` is `1.0` is rejected.
 
@@ -168,6 +168,7 @@ report a directory input as unavailable and a directory output as missing.
 
 ## Notes
 
+* Inputs and outputs can be declared using glob patterns at capture time (`capture --input "data/*.csv"` or `--output "out/*.json"`). Wildcard patterns are expanded safely at capture time and recorded file by file in `inputs` and `outputs`; manifests themselves always store exact relative file paths, not unexpanded patterns.
 * `command.argv` is the exact argument vector. It is never run through a shell.
 * `environment.env_vars` contains only variables from a fixed allowlist
   (`PYTHONHASHSEED`, `TZ`, `LANG`, `LC_ALL`, thread-count variables, `CUDA_VISIBLE_DEVICES`).

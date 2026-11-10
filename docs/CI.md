@@ -157,6 +157,44 @@ unchanged, so the step still fails on `FAIL` or `INCONCLUSIVE` and the summary i
 To see what changed between the committed baseline and a fresh capture, use
 `sciproof diff baseline.sciproof.json candidate.sciproof.json --format markdown`.
 
+
+### Uploading SARIF results to GitHub Code Scanning
+
+To display failed checks and warnings as annotations on PR files and alerts in GitHub Code Scanning:
+
+```yaml
+      - name: Verify experiment (SARIF)
+        if: always()
+        run: sciproof verify baseline.sciproof.json --format sarif -o sciproof.sarif
+
+      - name: Upload SARIF report
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: sciproof.sarif
+          category: sciproof
+```
+
+See [docs/REPORT.md](REPORT.md#sarif-210-report) for rule definitions (`SP001`-`SP003`).
+
+### Publishing HTML reports as artifacts
+
+To generate and preserve an interactive HTML report with visual tolerance meters:
+
+```yaml
+      - name: Generate HTML verification report
+        if: always()
+        run: sciproof verify baseline.sciproof.json --format html -o sciproof-report.html
+
+      - name: Upload HTML report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sciproof-verification-report
+          path: sciproof-report.html
+```
+
+
 ### Quiet mode for concise CI logs
 
 Use `-q` or `--quiet` when you want a concise verification result without decorative headers.
