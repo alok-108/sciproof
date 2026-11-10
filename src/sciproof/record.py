@@ -37,7 +37,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from sciproof.calibrate import _round_up, _spread
+from sciproof.calibrate import _spread, derive_tolerances
 from sciproof.capture import DEFAULT_MAX_LOG_BYTES, CaptureResult, capture
 from sciproof.errors import CaptureError, CommandFailed
 from sciproof.hashing import sha256_file
@@ -344,22 +344,29 @@ def record(
                 )
             )
         else:
-            _, max_rel, _, problem = _spread([parsed, second_leaves[relative] or []], 0.0, 0.0)
+            samples = [parsed, second_leaves[relative] or []]
+            _, _, _, problem = _spread(samples, 0.0, 0.0)
             if problem:
                 excluded.append((relative, f"differs between two identical runs: {problem}"))
             else:
-                rtol = max(DEFAULT_RTOL, _round_up(max_rel * SAFETY_FACTOR))
-                if rtol >= 1:
+                suggested_rtol, suggested_atol = derive_tolerances(samples)
+                if suggested_rtol is not None and suggested_rtol >= 1:
                     excluded.append(
                         (
                             relative,
                             "differs between two identical runs: "
-                            f"derived rtol {rtol:g} is 1 or more",
+                            f"derived rtol {suggested_rtol:g} is 1 or more",
                         )
                     )
                 else:
                     numeric.append(relative)
-                    tolerances[relative] = {"rtol": rtol}
+                    tol: dict[str, float] = {}
+                    if suggested_rtol is not None:
+                        tol["rtol"] = suggested_rtol
+                    if suggested_atol is not None:
+                        tol["atol"] = suggested_atol
+                    if tol:
+                        tolerances[relative] = tol
 
     exact = _collapse_directories(base, exact, numeric, excluded, pre_existing_dirs)
     declared_outputs = set(exact) | set(numeric)

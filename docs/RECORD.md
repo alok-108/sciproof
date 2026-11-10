@@ -33,10 +33,12 @@ Equivalent command (commit it, or run it again later):
 2. **Run 2** (skipped by `--fast`), from the same starting state: the files that run 1 created
    are removed first. An output that is the same both times is declared. A `.json`, `.csv` or
    `.tsv` output that differs only in its numbers is declared with a tolerance that covers the
-   difference (ten times the spread, as in [`calibrate`](CALIBRATE.md)). **Any other output that
-   differs is not declared**, because an exact hash of it could never be verified (a log with a
-   timestamp, a file with a random value), and it is listed as `NOT declared` so that nothing is
-   silently left out.
+   difference (ten times the spread, as in [`calibrate`](CALIBRATE.md)). When values are near
+   zero or change sign across zero, an absolute tolerance `atol` is derived instead of an
+   inflated `rtol >= 1`, so the output is not dropped for tiny absolute noise. **Any other
+   output that differs is not declared**, because an exact hash of it could never be verified
+   (a log with a timestamp, a file with a random value), and it is listed as `NOT declared` so
+   that nothing is silently left out.
 3. **Run 3** is the real capture, with those declarations.
 
 So the command runs three times (two with `--fast`, which assumes every output is stable). Plan
