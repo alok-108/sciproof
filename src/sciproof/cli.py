@@ -374,6 +374,36 @@ def _build_parser() -> argparse.ArgumentParser:
 
     bad.add_argument("--clean-env", action="store_true", help="with --rerun: minimal environment")
 
+    bad.add_argument(
+        "--pass-env",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help="with --clean-env: also pass this environment variable; repeatable",
+    )
+
+    bad.add_argument(
+        "--strict-env",
+        action="store_true",
+        help="fail or report inconclusive if the environment differs on rerun",
+    )
+
+    bad.add_argument(
+        "--allowed-signers",
+        type=Path,
+        metavar="FILE",
+        help="also check the signature <manifest>.sig against this OpenSSH allowed-signers "
+        "file; a missing signature is INCONCLUSIVE, a wrong one FAIL",
+    )
+
+    bad.add_argument(
+        "--policy",
+        type=Path,
+        metavar="FILE",
+        help="also check the rules of this policy file (TOML) against the evidence; see "
+        "docs/POLICY.md",
+    )
+
     bad.add_argument("--timeout", type=float, default=3600.0, metavar="SECONDS")
 
     rec = sub.add_parser(
@@ -947,9 +977,13 @@ def _run_badge(args: argparse.Namespace) -> int:
         args.manifest,
         rerun=args.rerun,
         assume_yes=args.yes,
+        strict_env=args.strict_env,
         timeout=args.timeout,
         confirm=_confirm if args.rerun and not args.yes else None,
         clean_env=args.clean_env,
+        pass_env=args.pass_env,
+        allowed_signers=args.allowed_signers,
+        policy=args.policy,
     )
 
     _write_user_file(args.output, render_badge(report.status, rerun=report.rerun_executed))
