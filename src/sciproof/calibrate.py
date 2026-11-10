@@ -239,7 +239,7 @@ def _remove(path: Path) -> None:
 def calibrate(
     manifest_path: Path | str,
     *,
-    runs: int = 5,
+    runs: int | None = None,
     seeds: list[int] | None = None,
     threads: list[int] | None = None,
     assume_yes: bool = False,
@@ -253,12 +253,33 @@ def calibrate(
     was declined (nothing ran). Raises ``ConfirmationRequired`` without ``assume_yes`` or
     a ``confirm`` callback.
     """
-    if threads is not None:
-        runs = len(threads)
-    elif seeds is not None:
+    if seeds is not None:
+        if len(seeds) < MIN_RUNS:
+            raise UsageError(f"--seeds must specify at least {MIN_RUNS} seeds")
+        if len(seeds) > MAX_RUNS:
+            raise UsageError(f"--seeds cannot specify more than {MAX_RUNS} seeds")
+        if runs is not None and runs != len(seeds):
+            raise UsageError(
+                f"conflicting options: --runs ({runs}) "
+                f"does not match number of seeds ({len(seeds)})"
+            )
         runs = len(seeds)
-    if not MIN_RUNS <= runs <= MAX_RUNS:
-        raise UsageError(f"--runs must be between {MIN_RUNS} and {MAX_RUNS}")
+    elif threads is not None:
+        if len(threads) < MIN_RUNS:
+            raise UsageError(f"--threads must specify at least {MIN_RUNS} thread counts")
+        if len(threads) > MAX_RUNS:
+            raise UsageError(f"--threads cannot specify more than {MAX_RUNS} thread counts")
+        if runs is not None and runs != len(threads):
+            raise UsageError(
+                f"conflicting options: --runs ({runs}) "
+                f"does not match number of threads ({len(threads)})"
+            )
+        runs = len(threads)
+    else:
+        if runs is None:
+            runs = 5
+        if not MIN_RUNS <= runs <= MAX_RUNS:
+            raise UsageError(f"--runs must be between {MIN_RUNS} and {MAX_RUNS}")
     manifest_path = Path(manifest_path).resolve()
     manifest = load_manifest(manifest_path)
     base = manifest_path.parent
