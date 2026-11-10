@@ -63,3 +63,13 @@ def test_diff_reports_recorded_env_change(tmp_path, monkeypatch):
     assert any(
         c.subject == "recorded variable SP_TEST_VAR" and c.kind == "changed" for c in report.changes
     )
+
+
+def test_recorded_env_case_folding_on_windows():
+    source = {"MY_VAR": "value", "Path": "C:\\bin"}
+    if sys.platform == "win32":
+        res = recorded_env_vars(["my_var", "MY_VAR", "path", "PATH"], environ=source)
+        assert res == {"my_var": "value", "path": "C:\\bin"}
+    else:
+        res = recorded_env_vars(["my_var", "MY_VAR"], environ=source)
+        assert res == {"my_var": None, "MY_VAR": "value"}
