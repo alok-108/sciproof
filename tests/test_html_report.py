@@ -95,3 +95,52 @@ def test_html_report_escapes_untrusted_input():
     assert '<img src="x"' not in html_content
     assert "&lt;svg" in html_content
     assert '<svg onload="' not in html_content
+
+
+def test_html_report_visual_tolerance_meters():
+    evidence = {
+        "kind": "rerun_output_numeric",
+        "path": "out/metrics.json",
+        "rtol": 1e-4,
+        "atol": 1e-6,
+        "difference_details": [
+            {
+                "location": "accuracy",
+                "recorded": 0.95,
+                "found": 0.94999,
+                "abs_diff": 0.00001,
+                "rel_diff": 0.0000105,
+                "allowed": 0.000095,
+            },
+            {
+                "location": "loss",
+                "recorded": 0.05,
+                "found": 0.052,
+                "abs_diff": 0.002,
+                "rel_diff": 0.04,
+                "allowed": 0.000005,
+            },
+        ],
+    }
+    report = Report(
+        name="numeric-exp",
+        rerun_requested=True,
+        checks=[
+            Check(
+                Status.FAIL,
+                "output out/metrics.json",
+                "values differ outside tolerance",
+                evidence=evidence,
+            )
+        ],
+    )
+    html_content = report_html(report)
+
+    assert "Numeric Comparison: out/metrics.json" in html_content
+    assert "Tolerance Meter" in html_content
+    assert "gauge-fill" in html_content
+    assert "gauge-fill exceeded" in html_content
+    assert "slider-group" in html_content
+    assert "rtol-slider-0" in html_content
+    assert "atol-slider-0" in html_content
+    assert "updateTolerance(0)" in html_content
