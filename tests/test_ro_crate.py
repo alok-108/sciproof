@@ -132,3 +132,34 @@ def test_ro_crate_directory_inputs_and_outputs(project):
     assert graph["results/"]["@id"].endswith("/")
     assert {"@id": "inputs/"} in action["object"]
     assert {"@id": "results/"} in action["result"]
+
+
+def test_ro_crate_includes_recorded_environment_variables(project):
+    import json
+
+    project.capture(name="recorded_env_test")
+    manifest_path = project.root / "recorded_env_test.sciproof.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["schema_version"] = "1.1"
+
+    manifest["environment"]["env_vars"] = {
+        "EXISTING_VAR": "original-value",
+    }
+    manifest["environment"]["recorded_env"] = {
+        "RECORDED_VAR": "recorded-value",
+        "ABSENT_VAR": None,
+        "EXISTING_VAR": "recorded-value",
+    }
+
+    manifest_path.write_text(json.dumps(manifest))
+
+    crate = to_ro_crate(manifest_path)
+    graph = {entity["@id"]: entity for entity in crate["@graph"]}
+    environment = graph["#run"]["environment"]
+
+    variables = {item["name"]: item["value"] for item in environment}
+
+    assert variables == {
+        "EXISTING_VAR": "original-value",
+        "RECORDED_VAR": "recorded-value",
+    }

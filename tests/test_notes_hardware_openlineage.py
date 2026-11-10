@@ -227,9 +227,9 @@ def test_a_rerun_on_different_hardware_is_reported(project, monkeypatch):
     path = _with_hardware(project, lambda h: h.update(cpu_count=h["cpu_count"] + 64))
     report = verify(path, rerun=True, assume_yes=True)
     assert any("CPU count:" in w for w in report.warnings)
-    assert report.status is Status.PASS  # a warning, as for other environment differences
+    assert report.status is Status.PASS
     strict = verify(path, rerun=True, assume_yes=True, strict_env=True)
-    assert strict.status is Status.INCONCLUSIVE and project.runs() == 2  # nothing ran the 2nd time
+    assert strict.status is Status.INCONCLUSIVE and project.runs() == 2
 
 
 def test_changed_gpus_are_reported(project, monkeypatch):
@@ -304,7 +304,6 @@ def test_diff_compares_hardware(project):
     data["environment"]["hardware"]["gpus"] = [{"name": "X", "driver": "1", "memory_mib": 1}]
     changed = project.root / "b.sciproof.json"
     changed.write_text(json.dumps(data))
-    # b has no snapshot files of its own, so compare only the environment section
     report = diff_manifests(first.manifest_path, changed)
     env = {c.subject: c.message for c in report.changes if c.section == "environment"}
     assert "CPU count" in env and env["GPUs"].endswith("-> X (1)")
@@ -385,7 +384,7 @@ def test_absent_outputs_and_directories(project):
         numeric_outputs=[],
     )
     outputs = to_openlineage(project.root / "dirs.sciproof.json")[1]["outputs"]
-    assert outputs == [{"namespace": "sciproof-files", "name": "res"}]  # one dataset per directory
+    assert outputs == [{"namespace": "sciproof-files", "name": "res"}]
 
 
 def test_openlineage_events_are_strict_json(project, capsys):
@@ -407,7 +406,32 @@ def test_an_unknown_export_format_is_refused(project, capsys):
 def test_an_openlineage_export_with_an_out_of_range_start_is_a_clean_error(project):
     project.capture()
     data = json.loads(project.manifest.read_text())
-    data["execution"]["duration_seconds"] = 1e11  # about 3000 years
+    data["execution"]["duration_seconds"] = 1e11
     project.manifest.write_text(json.dumps(data))
     with pytest.raises(UsageError, match="out of range"):
         to_openlineage(project.manifest)
+
+
+def test_in_toto_includes_recorded_environment_variables(project):
+    project.capture()
+    manifest = json.loads(project.manifest.read_text())
+    manifest["schema_version"] = "1.1"
+
+    manifest["environment"]["env_vars"] = {
+        "EXISTING_VAR": "original-value",
+    }
+    manifest["environment"]["recorded_env"] = {
+        "RECORDED_VAR": "recorded-value",
+        "ABSENT_VAR": None,
+        "EXISTING_VAR": "recorded-value",
+    }
+
+    project.manifest.write_text(json.dumps(manifest))
+
+    statement = to_in_toto(project.manifest)
+    variables = statement["predicate"]["environment"]["variables"]
+
+    assert variables == {
+        "EXISTING_VAR": "original-value",
+        "RECORDED_VAR": "recorded-value",
+    }
