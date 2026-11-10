@@ -95,3 +95,36 @@ def test_interpreter_probe_failures_return_cleanly(tmp_path, monkeypatch, error)
     assert len(calls) == 1
     assert calls[0][1]["timeout"] == environment.PROBE_TIMEOUT_SECONDS
     assert calls[0][1]["check"] is True
+
+
+def test_relative_virtualenv_interpreter_probed_when_cwd_differs(tmp_path, monkeypatch):
+    project_dir = tmp_path / "subproject"
+    venv_bin = project_dir / ".venv" / ("Scripts" if sys.platform == "win32" else "bin")
+    venv_bin.mkdir(parents=True)
+    exe_name = "python.exe" if sys.platform == "win32" else "python"
+    fake_exe = venv_bin / exe_name
+    fake_exe.write_text("#!/bin/sh\n")
+
+    calls = []
+
+    def mock_run(args, *a, **kw):
+        calls.append((args, kw))
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=(
+                '{"version": "3.99.0", "implementation": "CPython", '
+                '"byteorder": "little", "packages": []}'
+            ),
+        )
+
+    monkeypatch.setattr(environment.subprocess, "run", mock_run)
+
+    relative_argv0 = f".venv/{'Scripts' if sys.platform == 'win32' else 'bin'}/{exe_name}"
+    info, source = interpreter_info(relative_argv0, project_dir)
+
+    assert source == "command-interpreter"
+    assert info["version"] == "3.99.0"
+    assert len(calls) == 1
+    assert str(fake_exe) in calls[0][0][0]
+    assert calls[0][1]["cwd"] == project_dir
