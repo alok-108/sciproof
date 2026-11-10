@@ -116,7 +116,10 @@ def test_duplicate_keys_in_otherwise_valid_manifest_are_refused(project):
 @BOUNDED
 @given(st.binary(max_size=2048))
 @example(b"version = 1\n[manifest]\nmax_age_days = nan\n")
+@example(b"version = 1\n[manifest]\nmax_age_days = " + b"1" + b"0" * 400 + b"\n")
+@example(b"version = 1\n[outputs]\nmax_rtol = " + b"1" + b"0" * 400 + b"\n")
 @example(b"version = 1\n[outputs]\nmax_atol = inf\n")
+@example(b"version = 1\n[outputs]\nmax_atol = " + b"1" + b"0" * 400 + b"\n")
 @example(b"version = 1\nversion = 1\n")
 def test_policy_bytes_are_loaded_or_cleanly_refused(content):
     with tempfile.TemporaryDirectory() as directory:

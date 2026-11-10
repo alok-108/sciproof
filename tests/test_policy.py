@@ -119,13 +119,25 @@ def test_a_utf8_bom_does_not_hide_a_toml_error():
         ("version = 1\n[manifest]\nmax_age_days = true\n", "greater than 0"),
         ("version = 1\n[manifest]\nmax_age_days = inf\n", "finite number"),
         ('version = 1\n[manifest]\nmax_age_days = "30"\n', "finite number"),
+        (
+            "version = 1\n[manifest]\nmax_age_days = " + "1" + "0" * 400 + "\n",
+            "finite number greater than 0",
+        ),
         ("version = 1\n[manifest]\nrequire_exit_code = 0.5\n", "whole number"),
         ("version = 1\n[manifest]\nrequire_exit_code = true\n", "whole number"),
         ('version = 1\n[manifest]\nrequire_git = "yes"\n', "true or false"),
         ("version = 1\n[manifest]\nrequire_signature = 1\n", "true or false"),
         ("version = 1\n[manifest]\nmin_claims = -1\n", "whole number >= 0"),
         ("version = 1\n[outputs]\nmax_rtol = -1e-9\n", "0 or more"),
+        (
+            "version = 1\n[outputs]\nmax_rtol = " + "1" + "0" * 400 + "\n",
+            "finite number 0 or more",
+        ),
         ("version = 1\n[outputs]\nmax_atol = nan\n", "finite number"),
+        (
+            "version = 1\n[outputs]\nmax_atol = " + "1" + "0" * 400 + "\n",
+            "finite number 0 or more",
+        ),
         ('version = 1\n[outputs]\nrequire_numeric = "a.json"\n', "list of at most"),
         ('version = 1\n[outputs]\nrequire_numeric = ["../x.json"]\n', "'..'"),
         ('version = 1\n[outputs]\nrequire_numeric = ["/etc/x"]\n', "absolute"),
@@ -463,3 +475,47 @@ def test_record_requirements_work_through_the_cli(project, capsys, rule):
     assert f"manifest.{rule} = True" in capsys.readouterr().out
     assert cli.main(["verify", str(project.manifest), "--policy", str(policy)]) == cli.EXIT_FAIL
     assert f"[FAIL] policy manifest.{rule}" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("section", "rule", "expected"),
+    [
+        ("manifest", "max_age_days", "finite number greater than 0"),
+        ("outputs", "max_rtol", "finite number 0 or more"),
+        ("outputs", "max_atol", "finite number 0 or more"),
+    ],
+)
+def test_large_integers_exceeding_float_are_refused_cleanly(
+    section, rule, expected, tmp_path, capsys
+):
+    huge = "1" + "0" * 400
+    text = f"version = 1\n[{section}]\n{rule} = {huge}\n"
+    with pytest.raises(PolicyError) as exc_info:
+        parse_policy(text, file="p.toml")
+    err = str(exc_info.value)
+    assert f"{section}.{rule}: expected a {expected}" in err
+    assert "..." in err
+    assert huge not in err  # must not print the full 400-digit integer
+
+    policy_file = _write(tmp_path, text, f"{rule}_huge.toml")
+    assert cli.main(["check-policy", str(policy_file)]) == cli.EXIT_ERROR
+    captured = capsys.readouterr()
+    assert f"error: {policy_file.name}: {section}.{rule}: expected a {expected}" in captured.err
+    assert huge not in captured.err
+
+
+def test_large_integer_in_policy_fails_verify_cleanly(project, tmp_path, capsys):
+    project.capture()
+    huge = "1" + "0" * 400
+    policy_file = _write(
+        tmp_path,
+        f"version = 1\n[manifest]\nmax_age_days = {huge}\n",
+        "huge.toml",
+    )
+    assert (
+        cli.main(["verify", str(project.manifest), "--policy", str(policy_file)]) == cli.EXIT_ERROR
+    )
+    captured = capsys.readouterr()
+    expected = "error: huge.toml: manifest.max_age_days: expected a finite number greater than 0"
+    assert expected in captured.err
+    assert huge not in captured.err
