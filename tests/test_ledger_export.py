@@ -293,6 +293,26 @@ def test_the_predicate_describes_the_run_and_says_it_is_unsigned(project):
     assert all("snapshot" not in o["compare"] for o in predicate["outputs"])
 
 
+def test_in_toto_predicate_keys_are_documented(project):
+    from pathlib import Path
+
+    project.capture(claims=[("out/result.json", "$.value >= 1")])
+    predicate = to_in_toto(project.manifest)["predicate"]
+
+    repo_root = Path(__file__).resolve().parent.parent
+    docs = (repo_root / "docs" / "LIST_AND_EXPORT.md").read_text(encoding="utf-8")
+
+    # Assert anchor exists for PREDICATE_TYPE
+    anchor = PREDICATE_TYPE.split("#")[-1]
+    assert f'id="{anchor}"' in docs
+
+    # Assert every key emitted in predicate is documented
+    for key in predicate:
+        assert f"`{key}`" in docs, (
+            f"Key {key!r} emitted in in-toto predicate is not documented in docs/LIST_AND_EXPORT.md"
+        )
+
+
 SCRIPT = (
     "import pathlib; d = pathlib.Path('results'); d.mkdir(exist_ok=True); "
     "(d / 'a.txt').write_text('a'); (d / 'b.txt').write_text('b')"

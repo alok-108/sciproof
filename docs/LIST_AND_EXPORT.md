@@ -46,6 +46,34 @@ writes the manifest as an [in-toto Statement v1](https://github.com/in-toto/atte
   environment variables and packages, the Git state, how each output is compared (`exact` or the
   numeric tolerance), and the claims as text.
 
+### Predicate: experiment v1 <a id="experiment-v1"></a>
+
+The in-toto Statement's `predicateType` identifies this predicate definition:
+
+`https://hayagrivai-labs.github.io/sciproof/docs/export/#experiment-v1`
+
+Every key in `predicate` is documented below:
+
+| Field | Type | Optional | Description |
+| --- | --- | --- | --- |
+| `experiment` | string | No | The experiment name recorded in the manifest. |
+| `capturedAt` | string (ISO-8601) | No | Timestamp when the experiment evidence was captured. |
+| `producer` | object | No | Information about the producer: `name` ("sciproof"), `version` (SciProof version), and `manifestSchemaVersion`. |
+| `manifestDigest` | object | No | Digest of the manifest file itself: `{"sha256": "..."}`. |
+| `command` | array of strings | No | The exact command line arguments (`argv`) executed. |
+| `execution` | object | No | Execution metadata: `exitCode` (integer) and `durationSeconds` (float). |
+| `materials` | array of objects | No | Declared inputs with their paths and SHA-256 digests (`[{"name": "...", "digest": {"sha256": "..."}}]`). |
+| `environment` | object | No | Environment details: `python` version/implementation, `platform` details, `variables` (dictionary of captured environment variables), `packages` (list of captured dependencies with `name` and `version`), `recordedBy` (audit hook source, e.g. "audit-hook"), and `hardware` details (if recorded). |
+| `git` | object or null | Yes | Git repository information: `commit`, `branch`, `dirty` boolean, and `remote` URL if run inside a Git repository. |
+| `note` | string or null | Yes | User-provided note or description for the experiment. |
+| `outputs` | array of objects | No | Declared outputs: `name` (relative path), `present` (boolean), and `compare` mode (`exact` or `numeric` with `rtol`/`atol`). |
+| `claims` | array of strings | No | Verified numeric claims in human-readable claim syntax (e.g. `$.accuracy >= 0.9`). |
+| `notes` | array of strings | No | Integrity and scope statements (e.g. attestation requirements and interpretation caveats). |
+
+#### Versioning rule
+
+The `#experiment-v1` predicate definition is stable. Breaking changes or removals will introduce a new predicate type URI (`#experiment-v2`), while additive non-breaking fields may be added within `v1`.
+
 **The Statement is not signed and is not an attestation by itself.** In-toto Statements are
 normally wrapped in a signed envelope (DSSE) by the tool that attests them; that step is left to
 such a tool, and `sciproof sign` signs the manifest itself. The Statement keeps the hashes but not
