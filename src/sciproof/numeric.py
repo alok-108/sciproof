@@ -331,9 +331,21 @@ def _number_details(
     return absolute, relative, allowed
 
 
+def _format_scalar(val: Any) -> str:
+    """Format scalar as plain number without np.float64(...) wrapper."""
+    if hasattr(val, "item"):
+        val = val.item()
+    return repr(_jsonable(val))
+
+
 def _compare_arrays(
-    expected: Any, actual: Any, rtol: float, atol: float, prefix: str = ""
-) -> list[Difference]:
+    expected: Any,
+    actual: Any,
+    rtol: float,
+    atol: float,
+    prefix: str = "",
+    limit: int = MAX_REPORTED_DIFFERENCES,
+) -> tuple[list[Difference], int, int]:
     """Element-wise comparison of two equally shaped arrays with the scalar rule of ``compare``."""
     import numpy as np
 
@@ -349,30 +361,32 @@ def _compare_arrays(
         bad = ~(both_nan | same_inf | close)
     count = int(bad.sum())
     if not count:
-        return []
+        return [], 0, bad.size
     found: list[Difference] = []
-    for index in np.argwhere(bad)[:MAX_REPORTED_DIFFERENCES]:
-        key = tuple(int(i) for i in index)
-        location = f"{prefix}.data{list(key)}" if prefix else f"data{list(key)}"
-        recorded, seen = expected[key], actual[key]
-        absolute = relative = allowed = None
-        if expected.dtype.kind in "iuf" and actual.dtype.kind in "iuf":
-            absolute, relative, allowed = _number_details(float(recorded), float(seen), rtol, atol)
-        found.append(
-            Difference(
-                f"{location}: recorded {recorded!r}, found {seen!r} (rtol={rtol}, atol={atol})",
-                "number" if absolute is not None else "value",
-                location,
-                _jsonable(recorded),
-                _jsonable(seen),
-                absolute,
-                relative,
-                allowed,
+    if limit > 0:
+        for index in np.argwhere(bad)[:limit]:
+            key = tuple(int(i) for i in index)
+            location = f"{prefix}.data{list(key)}" if prefix else f"data{list(key)}"
+            recorded, seen = expected[key], actual[key]
+            absolute = relative = allowed = None
+            if expected.dtype.kind in "iuf" and actual.dtype.kind in "iuf":
+                absolute, relative, allowed = _number_details(
+                    float(recorded), float(seen), rtol, atol
+                )
+            found.append(
+                Difference(
+                    f"{location}: recorded {_format_scalar(recorded)}, "
+                    f"found {_format_scalar(seen)} (rtol={rtol}, atol={atol})",
+                    "number" if absolute is not None else "value",
+                    location,
+                    _jsonable(recorded),
+                    _jsonable(seen),
+                    absolute,
+                    relative,
+                    allowed,
+                )
             )
-        )
-    if count > len(found):
-        found.append(Difference(f"... {count} of {bad.size} values differ", "summary"))
-    return found
+    return found, count, bad.size
 
 
 def _is_exact_int(value: object) -> bool:
@@ -424,6 +438,9 @@ def compare_detailed(
     """Like ``compare`` but returns ``Difference`` records (at most 10)."""
     differences: list[Difference] = []
     headers = _csv_headers(expected)
+    total_array_diff_count = 0
+    total_array_elements = 0
+    differing_arrays = 0
 
     def note(difference: Difference) -> bool:
         differences.append(difference)
@@ -449,7 +466,15 @@ def compare_detailed(
             if getattr(val_e, "shape", None) == getattr(val_a, "shape", None) and getattr(
                 val_e, "dtype", None
             ) == getattr(val_a, "dtype", None):
-                differences.extend(_compare_arrays(val_e, val_a, rtol, atol, prefix=prefix))
+                budget = max(0, MAX_REPORTED_DIFFERENCES - len(differences))
+                arr_diffs, arr_count, arr_size = _compare_arrays(
+                    val_e, val_a, rtol, atol, prefix=prefix, limit=budget
+                )
+                if arr_count > 0:
+                    differences.extend(arr_diffs)
+                    total_array_diff_count += arr_count
+                    total_array_elements += arr_size
+                    differing_arrays += 1
             continue
         absolute = relative = allowed = None
         kind = "value"
@@ -489,6 +514,27 @@ def compare_detailed(
             )
             if note(record):
                 break
+    reported_array_diffs = sum(
+        1
+        for d in differences
+        if d.kind in ("number", "value") and ".data[" in d.message or "data[" in d.message
+    )
+    if total_array_diff_count > reported_array_diffs:
+        if differing_arrays == 1:
+            differences.append(
+                Difference(
+                    f"... {total_array_diff_count} of {total_array_elements} values differ",
+                    "summary",
+                )
+            )
+        else:
+            differences.append(
+                Difference(
+                    f"... {total_array_diff_count} values differ across {differing_arrays} arrays",
+                    "summary",
+                )
+            )
+
     return differences
 
 
