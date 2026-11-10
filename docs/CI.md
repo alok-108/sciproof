@@ -202,8 +202,9 @@ the step unless the result is `PASS`.
 | `allowed-signers` | | an OpenSSH allowed-signers file ([signing](SIGNING.md)) |
 | `working-directory` | `.` | the directory the paths are relative to |
 | `version` | latest | the SciProof version to install, for example `0.6.0` (the action needs 0.3.0 or later and fails with a clear message on an older one) |
+| `extras` | | optional extras to install with SciProof, for example `numpy` to compare `.npy`/`.npz` outputs |
 | `install` | `true` | set to `false` if the job already installed SciProof |
-| `python-version` | `3.12` | used when `install` is true |
+| `python-version` | | Python version to set up when `install` is true; empty uses the job's current Python without switching interpreters |
 
 Outputs: `result` (`PASS`, `FAIL`, `INCONCLUSIVE`, or `ERROR` if SciProof could not run) and `report`
 (the path of the JSON report). Inputs reach the shell only through environment variables, never by
@@ -212,6 +213,17 @@ executes the command in the manifest**: use it only for manifests your own team 
 protected branch, never for ones that come from a pull request, and pin the action to a tag or a
 commit. The repository's own CI runs the action on a small project (passing, failing policy,
 tampered output, and installed from PyPI).
+
+### Re-running experiments and custom environments (`rerun: true`)
+
+When `rerun: true` executes your command, it uses the `python` interpreter currently on `PATH`.
+If your experiment relies on specific packages (e.g. PyTorch, pandas) or a specific Python version (e.g. 3.11):
+
+* **Recommended:** Set up your Python environment and packages beforehand (e.g. via `actions/setup-python`),
+  install SciProof into it (`pip install sciproof` or `pip install 'sciproof[numpy]'`), and set `install: "false"`.
+  This guarantees the rerun uses your exact environment and dependencies without the action switching interpreters.
+* Alternatively, leave `install: "true"` with the default empty `python-version`: the action will install SciProof
+  (and any `extras`, such as `extras: "numpy"`) into the active interpreter without calling `setup-python`.
 
 ## JUnit output and policies in CI
 

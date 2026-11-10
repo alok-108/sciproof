@@ -184,3 +184,41 @@ jobs:
           manifest: r.sciproof.json
       - if: steps.available.outputs.supported == 'true'
         run: test "${{ steps.verify.outputs.result }}" = "PASS"
+
+  rerun-custom-env:
+    name: Action rerun preserves custom interpreter and supports numpy extras
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.11"
+      - name: Install dependencies into Python 3.11
+        run: |
+          python -m pip install numpy
+          python -m pip install .
+      - name: Record experiment with custom dependency and numpy output
+        run: |
+          mkdir demo && cd demo
+          cat > exp.py <<'EOF'
+          import sys, pathlib, numpy as np
+          assert sys.version_info[:2] == (3, 11), f"Expected Python 3.11, got {sys.version}"
+          np.save("arr.npy", np.array([42.0, 84.0]))
+          EOF
+          sciproof capture --name demo --input exp.py --output-numeric arr.npy -- python exp.py
+      - name: Verify with rerun and install false preserves 3.11 environment
+        uses: ./
+        with:
+          install: "false"
+          working-directory: demo
+          manifest: demo.sciproof.json
+          rerun: "true"
+      - name: Verify with default install and numpy extras does not switch interpreter
+        uses: ./
+        with:
+          extras: "numpy"
+          version: "0.6.0"
+          working-directory: demo
+          manifest: demo.sciproof.json
+          rerun: "true"
+
