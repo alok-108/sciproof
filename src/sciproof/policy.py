@@ -98,21 +98,32 @@ def _is_number(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
+def _short(value: object, limit: int = 60) -> str:
+    """repr() of a value, shortened so that a huge integer cannot flood the report."""
+    text = repr(value)
+    return text if len(text) <= limit else f"{text[:limit]}... ({len(text)} characters)"
+
+
 def _check_value(where: str, kind: str, value: Any) -> Any:
     if kind == "bool":
         if not isinstance(value, bool):
-            raise PolicyError(f"{where}: expected true or false, got {value!r}")
+            raise PolicyError(f"{where}: expected true or false, got {_short(value)}")
     elif kind == "int":
         if isinstance(value, bool) or not isinstance(value, int):
-            raise PolicyError(f"{where}: expected a whole number, got {value!r}")
+            raise PolicyError(f"{where}: expected a whole number, got {_short(value)}")
     elif kind == "count":
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-            raise PolicyError(f"{where}: expected a whole number >= 0, got {value!r}")
+            raise PolicyError(f"{where}: expected a whole number >= 0, got {_short(value)}")
     elif kind in ("positive", "nonneg"):
-        ok = _is_number(value) and math.isfinite(value)
+        ok = False
+        if _is_number(value):
+            try:
+                ok = math.isfinite(value)
+            except OverflowError:
+                ok = False
         if not ok or (value <= 0 if kind == "positive" else value < 0):
             what = "greater than 0" if kind == "positive" else "0 or more"
-            raise PolicyError(f"{where}: expected a finite number {what}, got {value!r}")
+            raise PolicyError(f"{where}: expected a finite number {what}, got {_short(value)}")
     elif kind == "paths":
         if not isinstance(value, list) or len(value) > MAX_REQUIRED_OUTPUTS:
             raise PolicyError(f"{where}: expected a list of at most {MAX_REQUIRED_OUTPUTS} paths")
@@ -138,7 +149,7 @@ def parse_policy(text: str, *, file: str = "policy") -> Policy:
         raise PolicyError(f"{file}: not valid TOML: {exc}") from None
     if data.get("version") != POLICY_VERSION or isinstance(data.get("version"), bool):
         raise PolicyError(
-            f"{file}: 'version = {POLICY_VERSION}' is required (got {data.get('version')!r})"
+            f"{file}: 'version = {POLICY_VERSION}' is required (got {_short(data.get('version'))})"
         )
     rules: dict[str, dict[str, Any]] = {}
     for section, content in data.items():
