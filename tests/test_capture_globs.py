@@ -1,5 +1,4 @@
 """Tests for dynamic glob expansion in capture command."""
-
 from __future__ import annotations
 
 import sys
@@ -43,6 +42,24 @@ def test_expand_glob_drops_directories(tmp_path):
     (tmp_path / "out" / "sub" / "b.txt").write_text("b")
 
     assert expand_glob(tmp_path, "out/**/*") == ["out/a.txt", "out/sub/b.txt"]
+
+
+def test_expand_glob_excludes_sciproof_artifacts(tmp_path):
+    (tmp_path / "run.sciproof.json").write_text("{}")
+    (tmp_path / "run.sig").write_text("signature")
+
+    (tmp_path / "run.sciproof.d").mkdir()
+    (tmp_path / "run.sciproof.d" / "snapshot.json").write_text("{}")
+
+    (tmp_path / "run.sciproof.d.tmp").mkdir()
+    (tmp_path / "run.sciproof.d.tmp" / "staging.json").write_text("{}")
+
+    (tmp_path / ".sciproof-rerun-test").mkdir()
+    (tmp_path / ".sciproof-rerun-test" / "output.json").write_text("{}")
+
+    (tmp_path / "results.json").write_text("{}")
+
+    assert expand_glob(tmp_path, "**/*") == ["results.json"]
 
 
 def test_expand_glob_records_file_symlink_by_its_own_path(tmp_path):
@@ -90,6 +107,25 @@ def test_capture_with_input_glob(project):
     inp_paths = [inp["path"] for inp in res.manifest["inputs"]]
     assert "split_1.json" in inp_paths
     assert "split_2.json" in inp_paths
+
+
+def test_capture_input_glob_ignores_unrelated_manifest(project):
+    (project.root / "split_1.json").write_text('{"a": 1}')
+    (project.root / "unrelated.sciproof.json").write_text("{}")
+
+    res = capture(
+        name="glob_manifest_input",
+        argv=[sys.executable, "-c", "import sys; sys.exit(0)"],
+        base=project.root,
+        inputs=["*.json"],
+        outputs=[],
+        numeric_outputs=[],
+    )
+
+    inp_paths = [inp["path"] for inp in res.manifest["inputs"]]
+    assert "split_1.json" in inp_paths
+    assert "data.json" in inp_paths
+    assert "unrelated.sciproof.json" not in inp_paths
 
 
 def test_capture_with_unmatched_input_glob_fails(project):
@@ -166,6 +202,39 @@ def test_capture_with_output_glob(project):
     out_paths = [out["path"] for out in res.manifest["outputs"]]
     assert "out_glob/res1.txt" in out_paths
     assert "out_glob/res2.txt" in out_paths
+
+
+def test_capture_force_output_glob_ignores_own_manifest(project):
+    script = (
+        "import pathlib\n"
+        "pathlib.Path('result.json').write_text('{}')\n"
+    )
+    argv = [sys.executable, "-c", script]
+
+    first = capture(
+        name="glob_force",
+        argv=argv,
+        base=project.root,
+        inputs=[],
+        outputs=["*.json"],
+        numeric_outputs=[],
+    )
+
+    second = capture(
+        name="glob_force",
+        argv=argv,
+        base=project.root,
+        inputs=[],
+        outputs=["*.json"],
+        numeric_outputs=[],
+        force=True,
+    )
+
+    assert "result.json" in [o["path"] for o in first.manifest["outputs"]]
+    assert "result.json" in [o["path"] for o in second.manifest["outputs"]]
+    assert "glob_force.sciproof.json" not in [
+        o["path"] for o in second.manifest["outputs"]
+    ]
 
 
 @pytest.mark.parametrize("pattern", ["/etc/*.conf", "/root/*"])
