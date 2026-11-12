@@ -107,8 +107,7 @@ def _is_sciproof_artifact(relative: str) -> bool:
 
     # Snapshot and rerun directories exclude everything inside them.
     return any(
-        part.endswith((".sciproof.d", ".sciproof.d.tmp"))
-        or part.startswith(".sciproof-rerun-")
+        part.endswith((".sciproof.d", ".sciproof.d.tmp")) or part.startswith(".sciproof-rerun-")
         for part in parts[:-1]
     )
 

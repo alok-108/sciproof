@@ -1,4 +1,5 @@
 """Tests for dynamic glob expansion in capture command."""
+
 from __future__ import annotations
 
 import sys
@@ -205,10 +206,7 @@ def test_capture_with_output_glob(project):
 
 
 def test_capture_force_output_glob_ignores_own_manifest(project):
-    script = (
-        "import pathlib\n"
-        "pathlib.Path('result.json').write_text('{}')\n"
-    )
+    script = "import pathlib\npathlib.Path('result.json').write_text('{}')\n"
     argv = [sys.executable, "-c", script]
 
     first = capture(
@@ -232,9 +230,7 @@ def test_capture_force_output_glob_ignores_own_manifest(project):
 
     assert "result.json" in [o["path"] for o in first.manifest["outputs"]]
     assert "result.json" in [o["path"] for o in second.manifest["outputs"]]
-    assert "glob_force.sciproof.json" not in [
-        o["path"] for o in second.manifest["outputs"]
-    ]
+    assert "glob_force.sciproof.json" not in [o["path"] for o in second.manifest["outputs"]]
 
 
 @pytest.mark.parametrize("pattern", ["/etc/*.conf", "/root/*"])
