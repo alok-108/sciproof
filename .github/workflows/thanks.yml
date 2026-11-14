@@ -1,0 +1,29 @@
+name: thanks
+
+# Thanks a contributor when their pull request is merged and points to open issues.
+on:
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  thanks:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true && github.event.pull_request.user.type != 'Bot'
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+            const author = pr.user.login;
+            if (['OWNER', 'MEMBER', 'COLLABORATOR'].includes(pr.author_association)) return;
+
+            const base = `https://github.com/${owner}/${repo}`;
+            const next = `${base}/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22`;
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: pr.number,
+              body: `Merged! Thank you, @${author}, for your contribution to ${repo}! 🎉\n\nIf you'd like to keep going, there are more [open issues that need help](${next}); comment \`/take\` on one to claim it.\n\n⭐ **If you find SciProof useful or enjoyed contributing, please consider dropping a Star on [${owner}/${repo}](${base})** (top right) — it helps more researchers and developers find the project!`,
+            });
