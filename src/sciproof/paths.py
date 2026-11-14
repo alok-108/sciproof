@@ -97,6 +97,21 @@ def has_glob_magic(pattern: str | Path) -> bool:
     return any(c in s for c in ("*", "?", "["))
 
 
+def _is_sciproof_artifact(relative: str) -> bool:
+    """Return True for files or directories containing SciProof evidence."""
+    parts = relative.split("/")
+
+    # Evidence manifests and signatures are files, not directory filters.
+    if parts[-1].endswith((".sciproof.json", ".sig")):
+        return True
+
+    # Snapshot and rerun directories exclude everything inside them.
+    return any(
+        part.endswith((".sciproof.d", ".sciproof.d.tmp")) or part.startswith(".sciproof-rerun-")
+        for part in parts[:-1]
+    )
+
+
 def expand_glob(base: Path, pattern: str) -> list[str]:
     """Expand a glob pattern safely below base directory, returning relative POSIX paths.
 
@@ -142,6 +157,8 @@ def expand_glob(base: Path, pattern: str) -> list[str]:
                 continue
             rel = match.relative_to(base_resolved).as_posix()
             validate_relative_path(rel)
+            if _is_sciproof_artifact(rel):
+                continue
             if rel not in matches:
                 matches.append(rel)
         except (UnsafePathError, OSError):
