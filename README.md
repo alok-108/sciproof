@@ -1,23 +1,23 @@
 # SciProof
 
-[![CI](https://github.com/alok-108/sciproof/actions/workflows/ci.yml/badge.svg)](https://github.com/alok-108/sciproof/actions/workflows/ci.yml)
+[![CI](https://github.com/hayagrivai-labs/sciproof/actions/workflows/ci.yml/badge.svg)](https://github.com/hayagrivai-labs/sciproof/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/sciproof.svg)](https://pypi.org/project/sciproof/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23676138.svg)](https://doi.org/10.5281/zenodo.23676138)
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0007--7867--5939-A6CE39.svg)](https://orcid.org/0009-0007-7867-5939)
 [![Awesome](https://img.shields.io/badge/Awesome-Reproducible%20Research-fc60a8?logo=awesomelists&logoColor=white)](https://github.com/leipzig/awesome-reproducible-research#development-resources)
 [![Documentation](https://img.shields.io/badge/docs-website-blue.svg)](https://hayagrivai-labs.github.io/sciproof/)
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/alok-108/sciproof/blob/main/examples/quickstart.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/hayagrivai-labs/sciproof/blob/main/examples/quickstart.ipynb)
 [![Python](https://img.shields.io/pypi/pyversions/sciproof.svg)](https://pypi.org/project/sciproof/)
-[![Good first issues](https://img.shields.io/github/issues/alok-108/sciproof/good%20first%20issue?color=7057ff&label=good%20first%20issues)](https://github.com/alok-108/sciproof/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/alok-108/sciproof/blob/main/LICENSE)
+[![Good first issues](https://img.shields.io/github/issues/hayagrivai-labs/sciproof/good%20first%20issue?color=7057ff&label=good%20first%20issues)](https://github.com/hayagrivai-labs/sciproof/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/hayagrivai-labs/sciproof/blob/main/LICENSE)
 
 Record a computational experiment once, then let anyone **check the evidence**: are the files
 unchanged, and does re-running the command give the recorded results, exactly or within a
 tolerance you declared?
 
 > **Status: 0.6.0.** Small, local-first, offline, zero runtime dependencies. Listed in [Awesome Reproducible Research](https://github.com/leipzig/awesome-reproducible-research#development-resources).
-> See [For Researchers](https://github.com/alok-108/sciproof/blob/main/docs/RESEARCH.md) for paper reproducibility, artifact evaluation, and LaTeX integration.
-> ⭐ **Contributors welcome!** Pick an open [good first issue](https://github.com/alok-108/sciproof/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) (comment `/take` to claim instantly), and consider dropping a **Star** on the repository to help other researchers and developers discover SciProof!
+> See [For Researchers](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/RESEARCH.md) for paper reproducibility, artifact evaluation, and LaTeX integration.
+> ⭐ **Contributors welcome!** Pick an open [good first issue](https://github.com/hayagrivai-labs/sciproof/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) (comment `/take` to claim instantly), and consider dropping a **Star** on the repository to help other researchers and developers discover SciProof!
 
 ## The problem
 
@@ -36,7 +36,7 @@ can later verify it with an explicit verdict: `PASS`, `FAIL` or `INCONCLUSIVE`.
 | **Scientific validity** | **Is the result correct?** | **Not addressed. A reproducible result can still be wrong.** |
 
 Bitwise reproducibility across different hardware or platforms is **not** promised. Details in
-[docs/CONCEPTS.md](https://github.com/alok-108/sciproof/blob/main/docs/CONCEPTS.md).
+[docs/CONCEPTS.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/CONCEPTS.md).
 
 ## Use cases
 
@@ -44,14 +44,14 @@ SciProof is a lightweight way to verify that a computational experiment's record
 supported outputs have not unexpectedly changed. Typical situations: ML experiment verification,
 regression testing for scientific software, numerical simulations, reproducing research results,
 data pipeline outputs and benchmark verification. Each one, with its limits, is described in
-[docs/USE_CASES.md](https://github.com/alok-108/sciproof/blob/main/docs/USE_CASES.md).
+[docs/USE_CASES.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/USE_CASES.md).
 
 ## For Researchers & Paper Authors
 
 If you publish computational papers (ML, bioinformatics, numerical modeling):
 
 * **Zero code modifications:** Run `sciproof record -- python train.py` — inputs, outputs and environment are captured automatically.
-* **No manual copy-pasting into LaTeX:** `sciproof export --format latex -o values.tex` writes numbers as `\newcommand{\accuracy}{0.94}` directly from verified outputs, preventing paper number drift ([details](https://github.com/alok-108/sciproof/blob/main/docs/RESEARCH.md)).
+* **No manual copy-pasting into LaTeX:** `sciproof export --format latex -o values.tex` writes numbers as `\newcommand{\accuracy}{0.94}` directly from verified outputs, preventing paper number drift ([details](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/RESEARCH.md)).
 * **Calibrated tolerances:** `sciproof calibrate` measures numerical variance across runs and suggests realistic `rtol`/`atol` so floating-point noise never fails a reviewer check.
 * **Artifact Evaluation badge:** Add a reproducible evidence badge to your paper repository or provide one command (`sciproof verify --rerun`) for conference artifact reviewers.
 
@@ -65,7 +65,7 @@ sciproof --version
 From source (for development):
 
 ```bash
-git clone https://github.com/alok-108/sciproof.git && cd sciproof
+git clone https://github.com/hayagrivai-labs/sciproof.git && cd sciproof
 python -m pip install -e ".[dev]"
 ```
 
@@ -155,14 +155,14 @@ rerun are `INCONCLUSIVE`, never `PASS`.
 
 Every report says why the verdict was chosen (`basis`) and what was *not* checked. With `--json`
 it also carries the evidence behind each check (digests, tolerances, the exact differences).
-Details: [docs/REPORT.md](https://github.com/alok-108/sciproof/blob/main/docs/REPORT.md);
+Details: [docs/REPORT.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/REPORT.md);
 the exact numeric comparison rules:
-[docs/COMPARISON.md](https://github.com/alok-108/sciproof/blob/main/docs/COMPARISON.md).
+[docs/COMPARISON.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/COMPARISON.md).
 
-A walkthrough with NumPy and pandas, including how to choose tolerances: [docs/TUTORIAL_NUMPY_PANDAS.md](https://github.com/alok-108/sciproof/blob/main/docs/TUTORIAL_NUMPY_PANDAS.md).
+A walkthrough with NumPy and pandas, including how to choose tolerances: [docs/TUTORIAL_NUMPY_PANDAS.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/TUTORIAL_NUMPY_PANDAS.md).
 
 From a standard-library script to CI with record, verify and calibrate:
-[docs/TUTORIAL_RECORD.md](https://github.com/alok-108/sciproof/blob/main/docs/TUTORIAL_RECORD.md).
+[docs/TUTORIAL_RECORD.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/TUTORIAL_RECORD.md).
 
 ## Commands
 
@@ -198,7 +198,7 @@ sciproof suggest-inputs [--input P]... [--output P]... -- COMMAND [ARGS...]
 * `--input` and `--output` accept a directory: every regular file below it is recorded, and a
   verification names the files that were added, removed or modified. Symbolic links inside
   are refused, empty directories are not recorded, and there is a limit of 10,000 files
-  ([details](https://github.com/alok-108/sciproof/blob/main/docs/MANIFEST.md#directories)).
+  ([details](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/MANIFEST.md#directories)).
   `--output-numeric` takes single files only.
 * A command that exits with a nonzero status is still recorded (capture then exits with `1`
   unless `--allow-nonzero`).
@@ -219,47 +219,47 @@ sciproof suggest-inputs [--input P]... [--output P]... -- COMMAND [ARGS...]
 * `diff` compares two manifests and lists what changed between two recorded runs: command,
   environment and packages, Git state, inputs, outputs (numeric ones with the baseline
   tolerance) and exit code. It executes nothing. Exit status `0` if nothing differs, `1`
-  otherwise ([details](https://github.com/alok-108/sciproof/blob/main/docs/DIFF.md)).
+  otherwise ([details](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/DIFF.md)).
 * `--claim OUTPUT 'LOCATION OP VALUE'` records a statement about one value in a `.json` or
   `.csv` output (`'$.accuracy >= 0.9'`, `'$.loss ~= 0.25 atol=0.01'`) that `verify` checks on the
   recorded output and on every rerun. It shows that the value satisfies the comparison, nothing
-  more ([details](https://github.com/alok-108/sciproof/blob/main/docs/CLAIMS.md)).
+  more ([details](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/CLAIMS.md)).
 * `--note TEXT` stores free text with the run (why it was made); `--record-hardware` also records
   the CPU count, processor and NVIDIA GPUs (no host name, user name or serial numbers), and a
   rerun on different hardware says so.
 * `sign` and `verify --allowed-signers FILE` sign a manifest and check the signature with
   OpenSSH (`ssh-keygen -Y`); SciProof implements no cryptography and trusts only the file you
-  name ([details](https://github.com/alok-108/sciproof/blob/main/docs/SIGNING.md)).
+  name ([details](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/SIGNING.md)).
 * `list` shows the manifests in a directory, newest first; `list --check` verifies all of them
   (integrity only) and exits with the worst result. `export` writes a manifest as an unsigned
-  in-toto Statement or as OpenLineage run events ([details](https://github.com/alok-108/sciproof/blob/main/docs/LIST_AND_EXPORT.md)).
+  in-toto Statement or as OpenLineage run events ([details](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/LIST_AND_EXPORT.md)).
 * `--policy FILE` checks a TOML file of rules about the evidence itself (not older than N days,
   clean Git tree, signed, at least one claim, no tolerance looser than a ceiling, rerun with
   `--clean-env`, ...); each rule is a check of the report, and an unmet requirement is
-  `INCONCLUSIVE`, not a pass ([docs/POLICY.md](https://github.com/alok-108/sciproof/blob/main/docs/POLICY.md)).
+  `INCONCLUSIVE`, not a pass ([docs/POLICY.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/POLICY.md)).
 * `record` captures a command without declaring any file: it runs it, detects the inputs (files
   Python read) and outputs (files created or changed), runs it again to see which outputs are
   stable, and prints the equivalent `capture` command
-  ([details](https://github.com/alok-108/sciproof/blob/main/docs/RECORD.md)).
+  ([details](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/RECORD.md)).
 * `calibrate` runs the recorded command several times and measures how much the outputs vary:
   exact outputs must be identical, numeric ones get a suggested tolerance; it executes the
   command, so it asks for confirmation
-  ([details](https://github.com/alok-108/sciproof/blob/main/docs/CALIBRATE.md)).
+  ([details](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/CALIBRATE.md)).
 * `update` captures the recorded experiment again with the declarations already in the manifest
   and shows what changed; it executes the recorded command, so it asks for confirmation
-  ([details](https://github.com/alok-108/sciproof/blob/main/docs/UPDATE.md)).
-* In CI: `--format junit` for test viewers, and a GitHub Action (`uses: alok-108/sciproof@v0.6.0`)
+  ([details](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/UPDATE.md)).
+* In CI: `--format junit` for test viewers, and a GitHub Action (`uses: hayagrivai-labs/sciproof@v0.6.0`)
   that verifies a manifest and writes the report to the job summary
-  ([details](https://github.com/alok-108/sciproof/blob/main/docs/CI.md)).
+  ([details](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/CI.md)).
 * `--clean-env` gives a rerun only a minimal environment (`PATH`, temp directories and the
   numerics-related variables SciProof records) instead of all of yours, so a manifest from
   someone else cannot read your credentials from it. `--pass-env NAME` adds a variable. It
   limits environment variables only: the command can still read your files and use the
   network, so it is not a sandbox.
 
-Python API: [docs/PYTHON_API.md](https://github.com/alok-108/sciproof/blob/main/docs/PYTHON_API.md).
+Python API: [docs/PYTHON_API.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/PYTHON_API.md).
 
-Manifest format: [docs/MANIFEST.md](https://github.com/alok-108/sciproof/blob/main/docs/MANIFEST.md).
+Manifest format: [docs/MANIFEST.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/MANIFEST.md).
 
 ## GitHub Action
 
@@ -274,7 +274,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: alok-108/sciproof@v0.6.0
+      - uses: hayagrivai-labs/sciproof@v0.6.0
         with:
           manifest: results/baseline.sciproof.json
           policy: sciproof.policy.toml      # optional: rules the evidence must meet
@@ -282,15 +282,15 @@ jobs:
 
 By default nothing from the manifest is executed. `rerun: true` re-executes the recorded command,
 so use it only for manifests your own team committed, never for ones that come from a pull request.
-Inputs, outputs (`result`, `report`) and the safety notes: [docs/CI.md](https://github.com/alok-108/sciproof/blob/main/docs/CI.md).
+Inputs, outputs (`result`, `report`) and the safety notes: [docs/CI.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/CI.md).
 
 ## Threat model and limitations
 
 * A manifest contains a command and must be treated as untrusted. `inspect` and plain `verify`
   never execute it; `--rerun` runs it **with your permissions, unsandboxed**. Only rerun
-  manifests you trust, ideally in a disposable VM or container. See [SECURITY.md](https://github.com/alok-108/sciproof/blob/main/SECURITY.md).
+  manifests you trust, ideally in a disposable VM or container. See [SECURITY.md](https://github.com/hayagrivai-labs/sciproof/blob/main/SECURITY.md).
 * Manifests can be signed with OpenSSH and checked against an explicit allowed-signers file;
-  see [docs/SIGNING.md](https://github.com/alok-108/sciproof/blob/main/docs/SIGNING.md).
+  see [docs/SIGNING.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/SIGNING.md).
   A signature shows that the holder of an allowed key vouched for those exact manifest bytes; it
   does not show that the experiment is correct, that it was run as described, when it was signed,
   or that the key and trust file were not compromised. Without a signature, hashes do not stop
@@ -313,7 +313,7 @@ Inputs, outputs (`result`, `report`) and the safety notes: [docs/CI.md](https://
 | [DVC](https://doc.dvc.org/start/data-pipelines/data-pipelines) | Pipelines with hashes of dependencies and outputs; heavier, more powerful. If you already use it you largely have integrity checking. |
 | [MLflow Tracking](https://mlflow.org/docs/latest/ml/tracking/) | Experiment tracking for ML with parameters and metrics, optional UI. |
 
-Full analysis, with what could not be confirmed: [docs/COMPETITIVE_ANALYSIS.md](https://github.com/alok-108/sciproof/blob/main/docs/COMPETITIVE_ANALYSIS.md).
+Full analysis, with what could not be confirmed: [docs/COMPETITIVE_ANALYSIS.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/COMPETITIVE_ANALYSIS.md).
 
 ## Roadmap (decided by feedback, not by speculation)
 
@@ -322,32 +322,32 @@ Nothing below is promised. Each item is only worth doing if real users ask for i
 1. Try it on real experiments of a few researchers; record what is awkward or missing.
 2. Based on that: additional domain-specific numeric formats (such as HDF5 or Zarr) or
    export targets if researchers ask for them. Numeric comparison already supports `.npz` multi-array
-   archives (see [docs/COMPARISON.md](https://github.com/alok-108/sciproof/blob/main/docs/COMPARISON.md))
-   and exports support RO-Crate JSON-LD (see [docs/LIST_AND_EXPORT.md](https://github.com/alok-108/sciproof/blob/main/docs/LIST_AND_EXPORT.md)).
-   [the manifest format](https://github.com/alok-108/sciproof/blob/main/docs/MANIFEST.md#directories).
+   archives (see [docs/COMPARISON.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/COMPARISON.md))
+   and exports support RO-Crate JSON-LD (see [docs/LIST_AND_EXPORT.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/LIST_AND_EXPORT.md)).
+   [the manifest format](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/MANIFEST.md#directories).
 3. Add trusted timestamping only if users need it. Signing is already supported, but it does not
-   establish when a manifest was signed; see [docs/SIGNING.md](https://github.com/alok-108/sciproof/blob/main/docs/SIGNING.md).
+   establish when a manifest was signed; see [docs/SIGNING.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/SIGNING.md).
 
 ## Contributing
 
 New here? The open issues are written for newcomers: each one has the problem, the files to touch
-and the acceptance criteria. Start with the [good first issues](https://github.com/alok-108/sciproof/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22),
-comment `/take` on one to claim it, or ask in [Discussions](https://github.com/alok-108/sciproof/discussions).
-Nothing to install: [open it in Codespaces](https://codespaces.new/alok-108/sciproof). A map of the code is in
-[docs/ARCHITECTURE.md](https://github.com/alok-108/sciproof/blob/main/docs/ARCHITECTURE.md).
+and the acceptance criteria. Start with the [good first issues](https://github.com/hayagrivai-labs/sciproof/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22),
+comment `/take` on one to claim it, or ask in [Discussions](https://github.com/hayagrivai-labs/sciproof/discussions).
+Nothing to install: [open it in Codespaces](https://codespaces.new/hayagrivai-labs/sciproof). A map of the code is in
+[docs/ARCHITECTURE.md](https://github.com/hayagrivai-labs/sciproof/blob/main/docs/ARCHITECTURE.md).
 
-See [CONTRIBUTING.md](https://github.com/alok-108/sciproof/blob/main/CONTRIBUTING.md). Quick checks: `ruff check .`, `ruff format --check .`,
+See [CONTRIBUTING.md](https://github.com/hayagrivai-labs/sciproof/blob/main/CONTRIBUTING.md). Quick checks: `ruff check .`, `ruff format --check .`,
 `python -m pytest`, `python examples/demo.py`.
 
 ## Contributors
 
 Thank you to everyone who has contributed to SciProof!
 
-<a href="https://github.com/alok-108/sciproof/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=alok-108/sciproof" alt="SciProof Contributors" />
+<a href="https://github.com/hayagrivai-labs/sciproof/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=hayagrivai-labs/sciproof" alt="SciProof Contributors" />
 </a>
 
 ## Licence
 
-[MIT](https://github.com/alok-108/sciproof/blob/main/LICENSE): short and permissive, so researchers and companies can use and embed it
+[MIT](https://github.com/hayagrivai-labs/sciproof/blob/main/LICENSE): short and permissive, so researchers and companies can use and embed it
 without legal review.
