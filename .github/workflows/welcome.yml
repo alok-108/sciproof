@@ -94,4 +94,6 @@ jobs:
             exit 0
           fi
           gh issue edit "$NUMBER" --repo "$REPO" --add-assignee "$USER_LOGIN"
-          reply "Assigned to @${USER_LOGIN}. Thank you! Ask here if anything is unclear. If you cannot continue, just say so and it goes back to the pool; an assigned issue with no activity for 21 days goes back to the pool automatically."
+          reply "Assigned to @${USER_LOGIN}. Thank you! Ask here if anything is unclear. If you cannot continue, just say so and it goes back to the pool; an assigned issue with no activity for 21 days goes back to the pool automatically.
+
+          ⭐ If you enjoy contributing to SciProof, consider dropping a **Star** on the repository (top right) to bookmark it and help other researchers discover it!"
